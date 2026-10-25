@@ -17,6 +17,8 @@ window.ReadingShareArtwork = (() => {
     const categories=new Map();for(const b of data.books)categories.set(b.category,(categories.get(b.category)||0)+1);
     const counts=[...categories].map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'zh'));
     const colors=new Map(counts.map((r,i)=>[r.name,palette[i%palette.length]]));
+    const chartPalette=['#bd5143','#4477a1','#b8973b','#5c897c','#ac7b84','#897b9e','#71828b'];
+    const chartColors=new Map([...categories].sort((a,b)=>b[1]-a[1]).map(([name],i)=>[name,chartPalette[i%chartPalette.length]]));
     const bookAccents=new Map(),bookColor=b=>bookAccents.get(b.book_id)||colors.get(b.category)||C.blue;
     async function coverAccent(b){
       if(!b.cover||bookAccents.has(b.book_id))return;
@@ -109,10 +111,12 @@ window.ReadingShareArtwork = (() => {
         if(!small){for(let i=0;i<vals.length;i++){const xx=vals.length===1?(left+right)/2:left+i*(right-left)/(vals.length-1);if(vals.length<=9||i%2===0||i===vals.length-1)text(`${i+1}月`,xx,base+35,{size:25,font:SANS,color:C.muted,align:'center'});}text('小时',x,y+5,{size:23,font:SANS,color:C.muted});}
         manifest.charts.push({kind:'monthly',points,top,base,upper});
       }
-      function tickRow(v,max,x,y,w,color=C.blue){
-        const n=32,unit=max/n;for(let k=0;k<n;k++)line(x+k*w/n,y,x+k*w/n,y-13,C.line,1);
-        if(unit>0)for(let k=0;k<Math.ceil(v/unit);k++)line(x+k*w/n,y,x+k*w/n,y-13*Math.min(1,(v-k*unit)/unit),color,3);
-        manifest.charts.push({kind:'ticks',value:v,max,unit});
+      function durationBar(v,max,x,y,w,color=C.blue){
+        const width=max>0?w*v/max:0;
+        rect(x,y-11,w,12,C.cream);
+        for(const fraction of [.25,.5,.75])line(x+w*fraction,y-14,x+w*fraction,y+4,C.line,.7);
+        rect(x,y-11,width,12,color);
+        manifest.charts.push({kind:'duration-bar',value:v,max,width,totalWidth:w});
       }
       function base(){
         rect(0,0,W,H,C.paper);for(const [x,y,color]of [[W,0,'#e0bf65'],[0,H,'#90b5c7'],[W,H*.7,'#dda18e']]){const g=ctx.createRadialGradient(x,y,0,x,y,420);g.addColorStop(0,color+'38');g.addColorStop(1,color+'00');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
@@ -125,7 +129,7 @@ window.ReadingShareArtwork = (() => {
         text(`${String(idx).padStart(2,'0')} / ${String(4+data.books.length).padStart(2,'0')}`,M,H-44,{font:NUM,size:24,color:C.muted,role:'footer'});
         text(p.kind==='book'?(p.quote?(p.textKind==='thought'?'个人笔记与阅读记录':'原文摘录与阅读记录'):'阅读记录'):'我的阅读年鉴',R,H-44,{size:23,font:SANS,align:'right',color:C.muted,role:'footer'});
       }
-      return {ctx,W,H,M,R,text,block,measureBlock,rect,line,dot,section,scribble,star,image,cover,metric,progress,trend,tickRow,base,manifest};
+      return {ctx,W,H,M,R,text,block,measureBlock,rect,line,dot,section,scribble,star,image,cover,metric,progress,trend,durationBar,base,manifest};
     }
     async function render(p,ratio){
       await fonts;await document.fonts.ready;const cv=document.createElement('canvas');cv.width=900;cv.height=ratio==='1:1'?900:ratio==='4:5'?1125:1200;
@@ -162,7 +166,7 @@ window.ReadingShareArtwork = (() => {
       if(!square)trend(475,H-181,345,90,{small:true});
     }
     async function statsPage(d){
-      const {H,M,R,text,block,line,metric,trend,section,tickRow}=d,square=H===900;
+      const {H,M,R,text,block,line,metric,trend,section}=d,square=H===900;
       text('今年，花在书上的时间',M,175,{size:52,weight:600});
       const total=data.summary.seconds;
       if(known(total)){
@@ -187,8 +191,9 @@ window.ReadingShareArtwork = (() => {
           for(const [i,b]of ranked.entries()){
             const y=H-171+i*60,style={size:28,min:26,weight:400,color:C.secondaryInk,leading:1.2};
             const shortTitle=measureBlockTitle(b.title);
-            block(shortTitle,M,y-28,350,42,style);
-            tickRow(b.reading_seconds,max,450,y-3,165,bookColor(b));
+            await d.cover(b,M,y-30,24,34);
+            block(shortTitle,M+38,y-28,285,42,style);
+            d.durationBar(b.reading_seconds,max,425,y-3,180,chartColors.get(b.category)||C.blue);
             text(duration(b.reading_seconds),R,y,{size:24,font:SANS,align:'right',color:C.muted});
           }
         }else block('每一本书，都在书架里留下了位置。',M,H-175,R-M,56,{size:28,min:26,color:C.muted});
@@ -206,17 +211,19 @@ window.ReadingShareArtwork = (() => {
       }
       const limit=square?4:6,rows=counts.slice(0,counts.length>limit?limit-1:limit);
       if(counts.length>limit)rows.push({name:'其他分类',count:counts.slice(limit-1).reduce((s,r)=>s+r.count,0),other:true});
-      const max=Math.max(...rows.map(r=>r.count)),unit=Math.max(1,Math.ceil(max/60));
-      section(`按分类统计 · 一格${unit}本`,M,357,R-M,'01');
-      const y0=415,bottom=square?638:H-344,rh=(bottom-y0)/rows.length;
+      const max=Math.max(...rows.map(r=>r.count)),unit=Math.max(1,Math.ceil(max/(square?5:7)));
+      section(`按分类统计 · 一块书脊${unit}本`,M,357,R-M,'01');
+      const y0=415,bottom=square?638:H-344,rh=(bottom-y0)/Math.ceil(rows.length/2),categoryCell=(R-M)/2;
       for(const [i,r]of rows.entries()){
-        const cy=y0+(i+.5)*rh,color=colors.get(r.name)||C.green;
-        const style={size:30,min:26,weight:500,leading:1.22},fit=d.measureBlock(r.name,190,rh-12,style);
-        block(r.name,M,cy-fit.height/2,190,rh-12,style);
-        const x=285,w=435,step=w/max,marks=Math.ceil(r.count/unit);
-        for(let k=0;k<marks;k++){const frac=Math.min(unit,r.count-k*unit)/unit;line(x+k*unit*step,cy,x+k*unit*step+Math.max(1,step*unit-8)*frac,cy,color,5);}
-        text(String(r.count),R,cy+12,{font:NUM,size:38,align:'right',color});
-        d.manifest.charts.push({kind:'category',name:r.name,count:r.count,total:data.books.length,unit,marks,center:cy});
+        const cy=y0+(Math.floor(i/2)+.5)*rh,x=M+(i%2)*categoryCell,color=chartColors.get(r.name)||C.green,marks=Math.ceil(r.count/unit),glyphs=[];
+        block(r.name,x+130,cy-40,categoryCell-146,38,{size:29,min:26,weight:500,leading:1.2});
+        text(`${r.count}本 · ${Math.round(r.count/data.books.length*100)}%`,x+130,cy+35,{font:SANS,size:27,color:C.muted});
+        for(let k=0;k<marks;k++){
+          const value=Math.min(unit,r.count-k*unit),h=10*value/unit,bx=x+15+[0,3,-1][k%3],by=cy+36-k*14-h;
+          d.rect(bx+1,by+2,88,h,'#40352718');d.rect(bx,by,88,h,color);d.rect(bx+65,by+1,18,Math.max(0,h-2),C.paper);line(bx+8,by+2,bx+8,by+Math.max(2,h-2),C.cream,1);
+          glyphs.push({value,x:bx,y:by,width:88,height:h});
+        }
+        d.manifest.charts.push({kind:'category',encoding:'book-spines',name:r.name,count:r.count,total:data.books.length,unit,marks,center:cy,glyphs});
       }
       const bottomY=square?656:H-284;
       section('从这些书，继续翻下去',M,bottomY,R-M,'02');

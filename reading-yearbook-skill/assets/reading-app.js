@@ -126,24 +126,26 @@
   const categories = [...new Set(data.books.map(b=>b.category))];
   const categoryPalette=['#bd5143','#4477a1','#b8973b','#5c897c','#ac7b84','#897b9e','#71828b'];
   const categoryCounts = categories.map(c=>({name:c,count:data.books.filter(b=>b.category===c).length})).sort((a,b)=>b.count-a.count);
-  const maxCount=Math.max(...categoryCounts.map(c=>c.count),1), rungStep=Math.min(18,112/maxCount);
+  const maxCount=Math.max(...categoryCounts.map(c=>c.count),1),spineUnit=Math.max(1,Math.ceil(maxCount/10));
+  $('#distributionLegend').textContent=spineUnit===1?'一块书脊，一本书':'每块书脊代表 '+spineUnit+' 本，末块按实际数量绘制';
   $('#distribution').innerHTML=categoryCounts.length?'<div class="distribution-grid">'+categoryCounts.map((c,i)=>{
-    const base=135,topY=base-(c.count-1)*rungStep;
-    let marks='';for(let k=0;k<c.count;k++){const y=base-k*rungStep,w=16-1.5+rnd(k+1,i+2)*3;marks+=`<line x1="${35-w}" y1="${y}" x2="${35+w}" y2="${y}" stroke="${categoryPalette[i%7]}" stroke-width="2" opacity="${.5+rnd(k+2,i+4)*.5}" class="fade" style="animation-delay:${i*.08+k*.012}s"/>`;if(k%5===4)marks+=`<circle cx="57" cy="${y}" r="1" fill="#9a9585" class="fade"/>`;}
-    return `<button class="category-rung" data-category="${esc(c.name)}" aria-pressed="false" aria-label="${esc(c.name)}，${c.count}本，筛选书架"><svg viewBox="0 0 70 158" aria-hidden="true"><line x1="5" y1="142" x2="65" y2="142" stroke="#d7ceba"/>${marks}<text x="35" y="${topY-14}" text-anchor="middle" fill="#24241f" font-size="16" class="category-count fade" style="animation-delay:${.4+i*.08}s">${c.count}</text></svg><span class="category-name">${esc(c.name)}</span></button>`;
+    const stackHeight=Math.ceil(c.count/spineUnit)*17+12;
+    let marks='';for(let k=0;k<Math.ceil(c.count/spineUnit);k++){const value=Math.min(spineUnit,c.count-k*spineUnit),h=13*value/spineUnit,x=12+[0,2,-1][k%3],y=stackHeight-7-k*17-h;
+      marks+=`<g data-spine-value="${value}" class="fade" style="animation-delay:${i*.06+k*.025}s"><rect x="${x+1}" y="${y+2}" width="78" height="${h}" rx="2" fill="#403527" opacity=".10"/><rect x="${x}" y="${y}" width="78" height="${h}" rx="2" fill="${categoryPalette[i%7]}"/><rect x="${x+57}" y="${y+1}" width="17" height="${Math.max(0,h-2)}" rx="1" fill="#f7f2e5" opacity=".75"/><path d="M${x+8} ${y+2}v${Math.max(0,h-4)}" stroke="#fff" opacity=".4"/></g>`;
+    }
+    const percent=Math.round(c.count/data.books.length*100);
+    return `<button class="category-rung category-stack" data-category="${esc(c.name)}" aria-pressed="false" aria-label="${esc(c.name)}，${c.count}本，占${percent}%，筛选书架"><svg viewBox="0 0 104 ${stackHeight}" style="height:${stackHeight}px" aria-hidden="true">${marks}</svg><span class="category-name">${esc(c.name)}</span><span class="category-amount"><strong class="category-count">${c.count}</strong><span>本 · ${percent}%</span></span></button>`;
   }).join('')+'</div>':'<p class="empty">暂无可统计书目</p>';
   revealChart('distribution');
   $$('[data-category]').forEach(button=>button.onclick=()=>{state.category=state.category===button.dataset.category?'':button.dataset.category;drawBooks();$('#shelf').scrollIntoView({block:'start'});});
   const timedBooks=data.books.filter(b=>b.reading_seconds!=null).sort((a,b)=>b.reading_seconds-a.reading_seconds);
   const maxSeconds=Math.max(...timedBooks.map(b=>b.reading_seconds),1);
-  const tickUnit=Math.max(1800,Math.ceil(maxSeconds/80/1800)*1800),tickWidth=480/(maxSeconds/tickUnit);
-  $('#investmentScope').textContent=timedBooks.length?`已记录时长的${timedBooks.length}本 · 每格${tickUnit/60}分钟，末尾短横线表示不足一格的时长`:'暂未载入逐书阅读时长';
+  $('#investmentScope').textContent=timedBooks.length?`已记录时长的${timedBooks.length}本 · 横条按实际时长同比例显示`:'暂未载入逐书阅读时长';
   $('#investment').innerHTML=timedBooks.length?timedBooks.map((b,i)=>{
-    const v=b.reading_seconds/tickUnit,n=Math.floor(v),tail=v-n;let marks='';
-    for(let k=0;k<n;k++){const x=k*tickWidth+tickWidth/2,h=9+rnd(k+1,i+2)*6;marks+=`<line x1="${x}" y1="21" x2="${x}" y2="${21-h}" stroke="${categoryPalette[i%7]}" opacity="${.55+rnd(k+3,i+5)*.45}" class="fade" style="animation-delay:${i*.08+k*.012}s"/>`;if(k%5===4)marks+=`<circle cx="${x}" cy="26" r=".8" fill="#9a9585"/>`;}
-    if(tail>0)marks+=`<line data-fraction="${tail}" x1="${n*tickWidth}" x2="${v*tickWidth}" y1="18" y2="18" stroke="${categoryPalette[i%7]}" stroke-width="2" class="fade" style="animation-delay:${.4+i*.08}s"/>`;
-    return `<button class="tick-row" data-open-book="${esc(b.book_id)}" data-seconds="${b.reading_seconds}" aria-label="${esc(b.title)}，${esc(duration(b.reading_seconds))}，查看详情"><span class="tick-label">${esc(b.title)}</span><svg viewBox="0 0 490 30" aria-hidden="true"><line x1="0" x2="480" y1="21" y2="21" stroke="#d7ceba" stroke-width=".6"/>${marks}</svg><span class="tick-time">${esc(duration(b.reading_seconds))}</span></button>`;
+    const color=categoryPalette[categoryCounts.findIndex(c=>c.name===b.category)%7],width=b.reading_seconds/maxSeconds*480;
+    return `<button class="tick-row investment-row" data-open-book="${esc(b.book_id)}" data-seconds="${b.reading_seconds}" aria-label="${esc(b.title)}，${esc(duration(b.reading_seconds))}，查看详情"><span class="investment-cover" aria-hidden="true"><span>书</span>${b.cover?`<img src="${esc(b.cover)}" alt="" loading="lazy">`:''}</span><span class="tick-label">${esc(b.title)}</span><svg viewBox="0 0 480 28" aria-hidden="true"><rect y="8" width="480" height="12" rx="3" fill="#e9e1cf"/><path d="M120 6v16M240 6v16M360 6v16" stroke="#c9c4b3" stroke-width=".6"/><rect class="duration-fill fade" style="animation-delay:${i*.045}s" y="8" width="${width}" height="12" rx="3" fill="${color}"/></svg><span class="tick-time">${esc(duration(b.reading_seconds))}</span></button>`;
   }).join(''):'<p class="empty">有逐书数据时，这里会呈现每本书的阅读投入。</p>';
+  $$('.investment-cover img').forEach(img=>img.addEventListener('error',()=>{img.hidden=true;}));
   $('#investmentTable').innerHTML='<table><thead><tr><th>书名</th><th>时长</th><th>秒数</th></tr></thead><tbody>'+timedBooks.map(b=>`<tr><td>${esc(b.title)}</td><td>${esc(duration(b.reading_seconds))}</td><td>${b.reading_seconds}</td></tr>`).join('')+'</tbody></table>';
   revealChart('investment');
   const events=[]; const seenEvents=new Set();

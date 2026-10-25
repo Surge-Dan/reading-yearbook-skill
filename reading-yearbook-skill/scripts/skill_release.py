@@ -54,7 +54,7 @@ def manifest(root=ROOT):
             continue
         kind='text-lf' if p.suffix.lower() in {'.py','.js','.cjs','.svg','.xml','.html','.css','.md','.txt','.json','.yaml','.yml','.template'} else 'binary'
         files.append({'path':relative.as_posix(),'sha256':file_hash(p,kind),'hash_kind':kind,'bytes':p.stat().st_size})
-    return {'version':'2026.10.17','files':files}
+    return {'version':'2026.10.25','files':files}
 
 
 def file_hash(path,kind='binary'):
