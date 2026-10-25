@@ -136,7 +136,7 @@ def collect_snapshot(year, key, cache, refresh=False, allow_large=False, request
     return snapshot
 
 
-def deliver(snapshot, materials, covers, output, previous=None, state_path=None):
+def deliver(snapshot, materials, covers, output, previous=None, state_path=None, allow_draft=False):
     data=annual_data(snapshot)
     if previous and previous.get('year')==data['year']:
         existing={b['book_id']:b for b in previous.get('books',[])}
@@ -155,16 +155,24 @@ def deliver(snapshot, materials, covers, output, previous=None, state_path=None)
             'message':'' if complete else '部分书目或材料尚未完整同步；刷新失败时保留上次内容。现有内容可浏览和导出，也可以重新同步缺失部分。'}
     if not complete:data['verification_status']='partial_verified'
     output=Path(output)
-    missing=[b['book_id'] for b in data['books'] if not covers.get(b['book_id'])]
-    # Keep a previously valid final file. Give the user an explicit partial file
-    # even when a cover cannot currently be retrieved.
-    destination=output.with_name(output.stem+'-draft'+output.suffix) if missing else output
-    result=build_html(data,destination,covers,require_all_covers=not missing)
+    from cover_contract import MissingCovers
+    missing=[{'book_id':b['book_id'],'title':b['title'],'reason':'missing'} for b in data['books'] if not covers.get(b['book_id'])]
+    blocked=None
+    try:
+        if missing and not allow_draft: raise MissingCovers(missing)
+        destination=output.with_name(output.stem+'-draft'+output.suffix) if missing else output
+        result=build_html(data,destination,covers,require_all_covers=not missing,allow_draft=allow_draft)
+    except MissingCovers as error:
+        missing=error.books
+        blocked={'status':'blocked','reason_code':'missing_covers','output':None,
+                 'previous_output':str(output) if output.exists() else None,
+                 'missing_covers':len(missing),'missing_books':missing,'message':str(error)}
     if state_path:
         saved=json.loads(json.dumps(data))
         for book in saved['books']:book.pop('cover',None)
         state_path=Path(state_path);state_path.parent.mkdir(parents=True,exist_ok=True)
         atomic_json(state_path,saved)
+    if blocked: return blocked
     return {**result,'status':'complete' if complete else 'partial','missing_covers':len(missing),
             'errors':len(errors),'message':data['collection_status']['message']}
 
@@ -177,6 +185,7 @@ def main():
     parser.add_argument('--annual-snapshot',type=Path,help='复用已核验年度快照')
     parser.add_argument('--materials',type=Path,help='复用已有完整逐书材料，须同时提供封面映射')
     parser.add_argument('--covers',type=Path)
+    parser.add_argument('--allow-draft',action='store_true',help='仅用户明确要求时生成带醒目标记的内部草稿，不作为工作台首页')
     parser.add_argument('--allow-large-yearbook',action='store_true',help='用户已同意逐书采集超过100本时使用')
     parser.add_argument('--refresh',choices=('reuse','missing','all'),default='reuse',help='复用缓存、重试缺失或刷新全部材料')
     parser.add_argument('--discovery-budget',type=int,default=100,help='未扩批确认时允许的新候选请求数量')
@@ -210,12 +219,12 @@ def main():
             covers=json.loads((cache/'covers.json').read_text('utf-8'))
         state_path=None if args.materials else cache.parent/'latest-reading-data.json'
         previous=json.loads(state_path.read_text('utf-8')) if state_path and state_path.exists() else None
-        result=deliver(snapshot,materials,covers,args.output,previous,state_path)
-        print(json.dumps(result,ensure_ascii=False));return 0 if result['status']=='complete' else 3
+        result=deliver(snapshot,materials,covers,args.output,previous,state_path,allow_draft=args.allow_draft)
+        print(json.dumps(result,ensure_ascii=False));return 0 if result['status']=='complete' else 2 if result['status']=='blocked' else 3
     except ScopeRequired as error:
         result=deliver(error.snapshot,{'year':args.year,'books':[]},{},args.output)
         print(json.dumps({**result,'status':'needs_scope_confirmation','candidates':error.candidates,
-            'message':'年度汇总已交付草稿；候选扩查将超过本轮预算，请确认后使用--allow-large-yearbook继续。'},ensure_ascii=False));return 3
+            'message':'年度汇总已取得；候选扩查将超过本轮预算，请确认后使用--allow-large-yearbook继续。不自动发布未通过完整性检查的草稿。'},ensure_ascii=False));return 3
     except (WeReadError,ValueError,OSError) as error:
         # Raw response text and credentials are never printed in delivery status.
         reason='接口、材料或资源校验失败，已保留上一版文件。请核对授权、年份与资源路径。'

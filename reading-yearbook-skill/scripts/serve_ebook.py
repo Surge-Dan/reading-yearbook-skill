@@ -69,6 +69,13 @@ def workbench_page(config=None, result=None, yearbook=None):
     css = asset('ebook-app.css')
     if yearbook:
         page = Path(yearbook).read_text('utf-8')
+        from cover_contract import check_yearbook_page, MissingCovers
+        try:
+            check_yearbook_page(page)
+        except (ValueError,TypeError) as error:
+            message=(f'还有{len(error.books)}本书的封面待补齐。' if isinstance(error,MissingCovers) else '现有年鉴尚未通过完整性检查。')
+            notice='<section role="status" data-yearbook-blocked="true"><h2>年度报告暂未就绪</h2><p>'+message+'为避免展示不完整报告，暂不载入书架。请让助手补齐后重新打开；电子书蒸馏仍可使用。</p></section>'
+            return workbench_page(config,result).replace('<main>','<main>'+notice,1)
         existing = re.search(r'<section\b[^>]*\bid="ebook"[^>]*>', page)
         if existing:
             depth = 0

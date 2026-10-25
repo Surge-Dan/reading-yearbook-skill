@@ -11,7 +11,7 @@ from html_contract import atomic_json
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED = {'assets/reading-theme.js', 'assets/reading-insights.js'}
 REQUIRED = ['SKILL.md','scripts/generate_reading_html.py','scripts/collect_html_materials.py',
-    'scripts/build_reading_html.py','scripts/html_contract.py','scripts/embed_fonts.py',
+    'scripts/build_reading_html.py','scripts/html_contract.py','scripts/cover_contract.py','scripts/embed_fonts.py',
     'assets/reading-template.html','assets/reading-app.js','assets/reading-share-art.js',
     'assets/reading-app.css','assets/reading-art.css',
     'assets/lieflat-LICENSE.txt','assets/yearbook-art/hero-book.png','assets/yearbook-art/reading.png',

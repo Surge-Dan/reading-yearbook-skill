@@ -33,11 +33,11 @@ class TitleInputTests(unittest.TestCase):
     def test_old_yearbook_gets_new_module_without_changing_personal_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)/'year.html'
-            path.write_text('<html><head></head><body><main><script id="reading-data">{"books":["private book"]}</script><section id="ebook"><p>old module</p></section></main><script id="ebook-app-mounted">oldScript()</script></body></html>', 'utf8')
+            path.write_text('<html><head></head><body><main><script id="reading-data">{"source_mode":"sample","books":["private book"]}</script><section id="ebook"><p>old module</p></section></main><script id="ebook-app-mounted">oldScript()</script></body></html>', 'utf8')
             page = workbench_page(yearbook=path)
             self.assertIn('ebookTitleInput', page)
             self.assertNotIn('oldScript()', page)
-            self.assertIn('{"books":["private book"]}', page)
+            self.assertTrue('{"source_mode":"sample","books":["private book"]}' in page)
 
     def test_title_creates_agent_handoff_without_fake_source_file(self):
         with tempfile.TemporaryDirectory() as tmp:

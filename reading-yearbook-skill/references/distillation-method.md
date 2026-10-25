@@ -7,7 +7,7 @@
 
 1. 检查安装资源 `scripts/skill_release.py`。普通 TXT/MD/EPUB 使用标准库；PDF 需要 pypdf（`requirements-ebook.txt`）。缺依赖由助手补齐。
 2. 默认检查当前宿主的本地文件／Python 执行能力，不检查模型 CLI 登录。无法共享本机文件时说明限制，不偷偷切换后端。身份只用于审计，不能证明模型或账号真实性。
-3. 启动 `python -X utf8 scripts/serve_ebook.py --output <任务输出目录> --runner agent --port 0`；已有年鉴加 `--yearbook <现有HTML>`。Windows 后台使用隐藏窗口，记录 PID，避免重复服务。
+3. 启动 `python -X utf8 scripts/serve_ebook.py --output <任务输出目录> --runner agent --port 0`；已有年鉴加 `--yearbook <现有HTML>`，工作台会重新核查真实书目封面，缺失／坏图或旧草稿不直接载入书架，返回未就绪提示并保留独立蒸馏功能。助手应先补齐原书对应版本书封，不把目录名、旧complete状态或文字占位当作通过验收。Windows 后台使用隐藏窗口，记录 PID，避免重复服务。
 4. 读取 stdout 或 `<输出目录>/.ebook-workbench/runtime.json` 的实际 URL 并打开，不猜固定端口，不让用户执行命令。重开已有服务时先核对运行 PID 与 URL，不能仅依据旧 runtime 文件。
 5. 服务需持续运行。关闭后独立结果 HTML 仍可浏览、复制、导图；新蒸馏需重新启动。认证失败、扫描 PDF、非法 JSON 均显示错误，不维持假进度。
 6. 当前 Agent 未领取任务时不计时；领取及每个待回复阶段默认期限 180 秒，可显式设 `--stage-timeout 600`，范围 30–900 秒。过期需网页重试后重新领取。不自动扩大时限、预算或收费重试。仅调整时限不改变有效内容缓存身份。

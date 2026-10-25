@@ -362,44 +362,31 @@ def merge_materials(data, materials):
 
 
 def embed_image(path):
+    from cover_contract import image_data
     path = Path(path)
-    content = path.read_bytes()
-    if content.startswith(b'\x89PNG\r\n\x1a\n'):
-        mime = 'image/png'
-    elif content.startswith(b'\xff\xd8\xff'):
-        mime = 'image/jpeg'
-    elif content[:4] == b'RIFF' and content[8:12] == b'WEBP':
-        mime = 'image/webp'
-    else:
-        raise ValueError(f'书封须为PNG/JPEG/WebP：{path.name}')
-    if len(content) > 8 * 1024 * 1024:
-        raise ValueError('单张书封不能超过8MB')
-    try:
-        from PIL import Image
-    except ImportError:
-        raise ValueError('缺少图片校验依赖Pillow，请按Skill安装说明补齐requirements.txt') from None
-    try:
-        with Image.open(io.BytesIO(content)) as img:
-            if img.width<1 or img.height<1 or img.width*img.height>32_000_000:
-                raise ValueError('图片尺寸超出安全范围')
-            img.verify()
-        with Image.open(io.BytesIO(content)) as img:
-            img.load()
-    except Exception as error:
-        raise ValueError('图片无法完整解码：'+Path(path).name) from error
-    return 'data:' + mime + ';base64,' + base64.b64encode(content).decode('ascii')
+    return image_data(path.read_bytes(),path.name)
 
 
-def build_html(data, output, covers=None, art_assets=None, require_all_covers=False):
+def build_html(data, output, covers=None, art_assets=None, require_all_covers=False, allow_draft=False):
     """Whitelist data at adapter boundary; no raw payload embedded."""
+    from cover_contract import missing_covers, MissingCovers
+    strict=require_all_covers or (data.get('source_mode')!='sample' and not allow_draft)
+    invalid_files=set()
     for b in data['books']:
         for removed in ('review', 'full_text_review', 'full_text_search'):
             b.pop(removed, None)
         if (covers or {}).get(b['book_id']):
-            b['cover'] = embed_image(covers[b['book_id']])
-    missing = sum(not b['cover'] for b in data['books'])
-    if require_all_covers and missing:
-        raise ValueError(f'有{missing}本书缺少真实封面，请补采后再生成正式年鉴')
+            try:
+                b['cover'] = embed_image(covers[b['book_id']])
+            except (ValueError,OSError) as error:
+                if strict:
+                    b['cover']=''; invalid_files.add(b['book_id'])
+                    continue
+                raise
+    missing=missing_covers(data) if strict or allow_draft else []
+    for row in missing:
+        if row['book_id'] in invalid_files: row['reason']='invalid'
+    if strict and missing: raise MissingCovers(missing)
     serialized = json.dumps(data, ensure_ascii=False, allow_nan=False).replace('<', '\\u003c').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     if re.search(r'wrk-[A-Za-z0-9_-]{8,}', serialized):
         raise ValueError('交付内容中检测到密钥格式，请移除后重试')
@@ -419,7 +406,12 @@ def build_html(data, output, covers=None, art_assets=None, require_all_covers=Fa
                     '__LICENSE__': html.escape((ROOT / 'assets' / 'lieflat-LICENSE.txt').read_text('utf-8')+'\n\nNoto Serif SC\n'+(ROOT/'assets/fonts/OFL-Serif.txt').read_text('utf-8')+'\n\nNoto Sans SC\n'+(ROOT/'assets/fonts/OFL-Sans.txt').read_text('utf-8'))}
     # One-pass replacement: user text may itself contain template delimiters.
     page = re.sub(r'__(?:DATA|STYLE|APP|SHARE_APP|EBOOK_APP|EBOOK_SECTION|LICENSE|ART)__', lambda m: replacements[m.group()], template)
+    if missing:
+        notice=f'<section role="alert" data-reading-draft="true"><h2>内部草稿 · 封面未齐</h2><p>还有{len(missing)}本书缺少有效封面，不能作为正式年鉴交付。</p></section>'
+        page=page.replace('<main>','<main>'+notice,1)
     output = Path(output)
+    if missing and not output.stem.endswith('-draft'):
+        output=output.with_name(output.stem+'-draft'+output.suffix)
     output.parent.mkdir(parents=True, exist_ok=True)
     atomic_text(output,page)
     return {'output': str(output), 'bytes': output.stat().st_size, 'books': len(data['books']), 'coverage': data['coverage']}
@@ -435,6 +427,7 @@ def main():
     parser.add_argument('--art-assets', type=Path, help='JSON：hero/reading/rhythm到本地透明图片路径，可按认可方向替换')
     parser.add_argument('--book-materials', type=Path, help='补采的进度与完整笔记材料，不能用精选摘录冒充完整采集')
     parser.add_argument('--require-all-covers', action='store_true', help='正式年鉴缺任一本封面时停止，不覆盖上一版')
+    parser.add_argument('--allow-draft', action='store_true', help='明确生成内部草稿，不能作为正式交付或工作台首页')
     args = parser.parse_args()
     raw = json.loads(args.input.read_text('utf-8-sig'))
     data = adapt_data(raw, args.year)
@@ -448,7 +441,7 @@ def main():
     art_assets = {}
     if args.art_assets:
         art_assets = {k: args.art_assets.parent / v for k, v in json.loads(args.art_assets.read_text('utf-8-sig')).items()}
-    print(json.dumps(build_html(data, args.output, covers, art_assets, args.require_all_covers), ensure_ascii=False))
+    print(json.dumps(build_html(data, args.output, covers, art_assets, args.require_all_covers,allow_draft=args.allow_draft), ensure_ascii=False))
     return 0
 
 

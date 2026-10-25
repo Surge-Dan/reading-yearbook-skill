@@ -591,9 +591,9 @@
     },
     {
       "path": "references/distillation-method.md",
-      "sha256": "1ad8a4851639af775149d98e416509784d0dc592793bef745ffc0bd9cc4fcc85",
+      "sha256": "b8a6c245cb743772ef07e4bea16f5606f3eec2bd52f5eebcfa11682f3e9f336a",
       "hash_kind": "text-lf",
-      "bytes": 13377
+      "bytes": 13640
     },
     {
       "path": "references/evidence-rules.md",
@@ -603,9 +603,9 @@
     },
     {
       "path": "references/html-yearbook.md",
-      "sha256": "c8b1c2b810b3d3c51e9a036acf8e1a342b34921b951416a3c39530c2a11af278",
+      "sha256": "cbda7d73ffc34cae98c6996c8747d80174a1cc9df64d83c917a202d403c29ec4",
       "hash_kind": "text-lf",
-      "bytes": 18036
+      "bytes": 18588
     },
     {
       "path": "references/output-contract.md",
@@ -681,9 +681,9 @@
     },
     {
       "path": "scripts/build_reading_html.py",
-      "sha256": "14567634937e0a9445ebc7a87eb9935052365b1bd8c2c7069ff2219a2e86251b",
+      "sha256": "4998c0eb19b228127c03af97b512582c0d4e9aa200d7608a70935e7cdd78818f",
       "hash_kind": "text-lf",
-      "bytes": 27606
+      "bytes": 27555
     },
     {
       "path": "scripts/collage_materials.py",
@@ -708,6 +708,12 @@
       "sha256": "1d4799fb6c68cbb3a520d04eb8e264d882625ad90a8d19049d67a19144196f3b",
       "hash_kind": "text-lf",
       "bytes": 2742
+    },
+    {
+      "path": "scripts/cover_contract.py",
+      "sha256": "d683b63ec4c9fd8ab71ff3fb92d2dfda330e114e9a5ec1ec11b4da32dcbe4248",
+      "hash_kind": "text-lf",
+      "bytes": 3274
     },
     {
       "path": "scripts/create_display_lettering.py",
@@ -783,9 +789,9 @@
     },
     {
       "path": "scripts/generate_reading_html.py",
-      "sha256": "2310f7292ba0711c9df737ffa4bc0dfb5ee7e6a549a85b003799591deb0ccaa6",
+      "sha256": "f3e369b6585a16f25b4b7cdc2047af652f41ed7dbb740379ed48a30c86d54028",
       "hash_kind": "text-lf",
-      "bytes": 15315
+      "bytes": 16034
     },
     {
       "path": "scripts/html_contract.py",
@@ -831,9 +837,9 @@
     },
     {
       "path": "scripts/serve_ebook.py",
-      "sha256": "845acb4d4b73396587e6291535dd22c3582d74bf24b818a6255256a8df4db4fe",
+      "sha256": "157b802c85f9b3514c00603a72931a91d4368abc145d1959ecfa838d7c528934",
       "hash_kind": "text-lf",
-      "bytes": 29728
+      "bytes": 30399
     },
     {
       "path": "scripts/share_contract.py",
@@ -843,9 +849,9 @@
     },
     {
       "path": "scripts/skill_release.py",
-      "sha256": "bd98a042e3c9c1a93357472c05dd93845aa10eb5a22a6aa3165f4ba7106300eb",
+      "sha256": "62b855335c4263e121629ee3af1628540df39e73b4573b269386503641788133",
       "hash_kind": "text-lf",
-      "bytes": 5410
+      "bytes": 5438
     },
     {
       "path": "scripts/static_graphics.py",
@@ -867,9 +873,9 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "4f566744a3d8ca7bc96ab1ab10555b186b5b1fe1479f75778ebe1cb77f2f7944",
+      "sha256": "1dc4175088b1d869dbf37a23379dae7de07921404fa055ca87d00af06dfd1982",
       "hash_kind": "text-lf",
-      "bytes": 11743
+      "bytes": 12182
     },
     {
       "path": "third_party/cangjie/extractors/case-extractor.md",
