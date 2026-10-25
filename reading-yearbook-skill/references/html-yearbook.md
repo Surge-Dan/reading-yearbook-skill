@@ -16,7 +16,7 @@ python -X utf8 scripts/generate_reading_html.py --year 2026 --output output/read
 
 Key从环境变量读取，不进入参数或交付。私人缓存按授权、年份和日期隔离；只复用当前用户的有效材料。新采集超过100本时先返回`needs_scope_confirmation`并说明范围；用户明确同意后才加`--allow-large-yearbook`，已有完整材料不受此限制。年度排行已覆盖官方读过总数时跳过额外候选扫描；否则结合书架与分页笔记本发现候选，再以实际进度和本年日期核实。完整笔记逐书采集，零记录有效；覆盖不足如实说明。可用`--annual-snapshot`、`--materials`和`--covers`复用已核验材料，不为视觉修改重采。
 
-正式封面缺失时保留上一版并返回blocked（退出码2），不自动生成或打开占位草稿。先在既有授权／预算内按书籍身份补采对应版本书封，不用同名不同版本凑数，不扩大到全文采集或第三方搜索。只有用户明确要求内部草稿时才加`--allow-draft`，输出明确的`index-draft.html`与醒目标记，不能作为工作台首页。材料局部失败但封面完整时仍交付可用网页并注明状态，不能称材料齐全。同一授权与年份的上次笔记保存在私人状态缓存中；刷新失败保留已有内容，成功核查为零才清空。有效接口也不保证返回逐日数据或所有书目；未知不补零。脚本退出码0为完整，3为部分，2为阻塞。交付前由助手使用已有浏览器测试离线文件及导出，不要求用户安装运行时。
+封面缺失或损坏时自动使用书名／作者占位，照常生成指定HTML并打开年度报告，不自动转为草稿或阻塞。先在既有授权／预算内按书籍身份补采对应版本书封，不用同名不同版本凑数，不扩大到全文采集或第三方搜索，不无限重试。缺图和材料局部失败记为partial，网页仍可浏览和导出；不能称材料齐全。`--allow-draft`仅保留为主动另存内部草稿的选项。同一授权与年份的上次笔记保存在私人状态缓存中；刷新失败保留已有内容，成功核查为零才清空。有效接口也不保证返回逐日数据或所有书目；未知不补零。脚本退出码0为完整，3为可用但材料不全，2为阻塞；缺封面不属于阻塞。交付前由助手使用已有浏览器测试离线文件及导出，不要求用户安装运行时。
 
 ## 使用已有材料构建
 
@@ -26,7 +26,7 @@ python -X utf8 scripts/build_reading_html.py --input reading-data.json --output 
 
 接受原始`shelf/stats/book_details`、规范化`summary/books`或已有`share-job.json`。已有分享任务包通常仅有精选书，用`--annual-snapshot`补充年内书目，不能直接加入整个书架。年度快照包含`annual.readLongest`、`shelf.books`与可选`non_ranked_progress`；后者只纳入实际开始阅读且末次阅读在本年的书。快照需通过显式year或annual.readTimes日期核验年份，跨年快照拒绝合并。
 
-`--covers covers.json`映射书籍ID到本地PNG/JPEG/WebP路径，路径相对covers.json。真实年鉴即使未传`--require-all-covers`也强制检查全封面，并校验内嵌图片完整解码；任何缺失或损坏都在写文件前停止，保留上一版。视觉修订也不能跳过；工作台会检查旧HTML的实际书目，拒绝直接展示缺封面报告，并保留独立电子书功能。文字占位仅用于明确标记的内部草稿、示例或防御性坏图恢复，不能当成正式交付。网页和离线构建本身不请求远程封面，材料采集阶段先取得来源中的真实封面并内嵌，不生成伪装成真实版本的封面。
+`--covers covers.json`映射书籍ID到本地PNG/JPEG/WebP路径，路径相对covers.json。构建时检查图片完整解码，缺失、路径失效或图片损坏时清除无效图片并使用已有书名占位样式，保留书目、统计、笔记和其他真实封面。工作台照常载入缺封面的旧HTML，仅书目数据损坏时拒绝载入。只有明确要求全真实封面时才使用`--require-all-covers`，此模式缺图会在写文件前停止并保留上一版。网页和离线构建本身不请求远程封面，材料采集阶段取得的有效真实封面会内嵌，不生成伪装成真实版本的封面。
 
 ### 补齐书籍材料
 
@@ -34,7 +34,7 @@ python -X utf8 scripts/build_reading_html.py --input reading-data.json --output 
 
 ```powershell
 python -X utf8 scripts/collect_html_materials.py --input share-job.json --annual-snapshot annual-snapshot.json --output private/html-materials
-python -X utf8 scripts/build_reading_html.py --input share-job.json --annual-snapshot annual-snapshot.json --book-materials private/html-materials/materials.json --covers private/html-materials/covers.json --require-all-covers --output output/reading/index.html
+python -X utf8 scripts/build_reading_html.py --input share-job.json --annual-snapshot annual-snapshot.json --book-materials private/html-materials/materials.json --covers private/html-materials/covers.json --output output/reading/index.html
 ```
 
 采集脚本读取环境变量中的Key，两个并发任务、复用有效缓存、按游标拉取全部个人想法；单书最多20页，超过时停止扩批，版本升级或鉴权失败停止新请求。可用`--legacy-cache`复用旧的`bookId-highlights.json`／`bookId-thoughts.json`。缓存及封面留在私人目录，错误状态不写成空笔记。构建器只合并当前年鉴已有书籍，不让额外书目混入。

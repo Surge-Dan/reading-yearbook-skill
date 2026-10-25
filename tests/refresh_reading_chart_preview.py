@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'reading-yearbook-skill/scripts'))
 from build_reading_html import build_html
+from cover_contract import missing_covers
 
 
 class ReadingData(HTMLParser):
@@ -34,8 +35,17 @@ def main():
     if source == target: raise ValueError('预览与源文件必须分开，验证后再更新')
     data_parser = ReadingData(); data_parser.feed(source.read_text('utf-8'))
     data = json.loads(''.join(data_parser.parts)); original = copy.deepcopy(data)
+    expected = copy.deepcopy(original)
+    missing = missing_covers(expected)
+    missing_ids = {row['book_id'] for row in missing}
+    for book in expected['books']:
+        if book['book_id'] in missing_ids: book['cover']=''
+    if missing and 'collection_status' in expected:
+        expected['collection_status']['complete']=False
+        expected['collection_status']['message']='部分封面或材料暂未取得，年度报告仍可正常浏览和导出。'
+        expected['verification_status']='partial_verified'
     build_html(data, target)
-    if original != data: raise ValueError('视觉重建意外改动了阅读数据')
+    if expected != data: raise ValueError('视觉重建意外改动了阅读数据')
     old_art = ReadingData('reading-art'); old_art.feed(source.read_text('utf-8'))
     new_art = ReadingData('reading-art'); new_art.feed(target.read_text('utf-8'))
     if json.loads(''.join(old_art.parts)) != json.loads(''.join(new_art.parts)):
@@ -70,7 +80,7 @@ def main():
         backup = target.parent/'previous-yearbook.html'
         if not backup.exists(): shutil.copy2(source, backup)
         shutil.copy2(target, source)
-    print(json.dumps({'output':str(target),'data_unchanged':True,'source_updated':args.update_source}, ensure_ascii=False))
+    print(json.dumps({'output':str(target),'data_unchanged':original==data,'reading_records_unchanged':True,'source_updated':args.update_source}, ensure_ascii=False))
 
 
 if __name__ == '__main__': main()

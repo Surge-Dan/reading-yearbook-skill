@@ -370,7 +370,7 @@ def embed_image(path):
 def build_html(data, output, covers=None, art_assets=None, require_all_covers=False, allow_draft=False):
     """Whitelist data at adapter boundary; no raw payload embedded."""
     from cover_contract import missing_covers, MissingCovers
-    strict=require_all_covers or (data.get('source_mode')!='sample' and not allow_draft)
+    strict=require_all_covers
     invalid_files=set()
     for b in data['books']:
         for removed in ('review', 'full_text_review', 'full_text_search'):
@@ -378,15 +378,19 @@ def build_html(data, output, covers=None, art_assets=None, require_all_covers=Fa
         if (covers or {}).get(b['book_id']):
             try:
                 b['cover'] = embed_image(covers[b['book_id']])
-            except (ValueError,OSError) as error:
-                if strict:
-                    b['cover']=''; invalid_files.add(b['book_id'])
-                    continue
-                raise
-    missing=missing_covers(data) if strict or allow_draft else []
+            except (ValueError,OSError):
+                b['cover']=''; invalid_files.add(b['book_id'])
+    missing=missing_covers(data)
     for row in missing:
         if row['book_id'] in invalid_files: row['reason']='invalid'
     if strict and missing: raise MissingCovers(missing)
+    missing_ids={row['book_id'] for row in missing}
+    for book in data['books']:
+        if book['book_id'] in missing_ids: book['cover']=''
+    if missing and 'collection_status' in data:
+        data['collection_status']['complete']=False
+        data['collection_status']['message']='部分封面或材料暂未取得，年度报告仍可正常浏览和导出。'
+        data['verification_status']='partial_verified'
     serialized = json.dumps(data, ensure_ascii=False, allow_nan=False).replace('<', '\\u003c').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     if re.search(r'wrk-[A-Za-z0-9_-]{8,}', serialized):
         raise ValueError('交付内容中检测到密钥格式，请移除后重试')
@@ -406,15 +410,16 @@ def build_html(data, output, covers=None, art_assets=None, require_all_covers=Fa
                     '__LICENSE__': html.escape((ROOT / 'assets' / 'lieflat-LICENSE.txt').read_text('utf-8')+'\n\nNoto Serif SC\n'+(ROOT/'assets/fonts/OFL-Serif.txt').read_text('utf-8')+'\n\nNoto Sans SC\n'+(ROOT/'assets/fonts/OFL-Sans.txt').read_text('utf-8'))}
     # One-pass replacement: user text may itself contain template delimiters.
     page = re.sub(r'__(?:DATA|STYLE|APP|SHARE_APP|EBOOK_APP|EBOOK_SECTION|LICENSE|ART)__', lambda m: replacements[m.group()], template)
-    if missing:
-        notice=f'<section role="alert" data-reading-draft="true"><h2>内部草稿 · 封面未齐</h2><p>还有{len(missing)}本书缺少有效封面，不能作为正式年鉴交付。</p></section>'
+    if missing and allow_draft:
+        notice=f'<section role="status" data-reading-draft="true"><h2>内部草稿</h2><p>{len(missing)}本书暂用书名封面。</p></section>'
         page=page.replace('<main>','<main>'+notice,1)
     output = Path(output)
-    if missing and not output.stem.endswith('-draft'):
+    if missing and allow_draft and not output.stem.endswith('-draft'):
         output=output.with_name(output.stem+'-draft'+output.suffix)
     output.parent.mkdir(parents=True, exist_ok=True)
     atomic_text(output,page)
-    return {'output': str(output), 'bytes': output.stat().st_size, 'books': len(data['books']), 'coverage': data['coverage']}
+    return {'output': str(output), 'bytes': output.stat().st_size, 'books': len(data['books']), 'coverage': data['coverage'],
+            'missing_covers':len(missing),'missing_books':missing}
 
 
 def main():
@@ -427,7 +432,7 @@ def main():
     parser.add_argument('--art-assets', type=Path, help='JSON：hero/reading/rhythm到本地透明图片路径，可按认可方向替换')
     parser.add_argument('--book-materials', type=Path, help='补采的进度与完整笔记材料，不能用精选摘录冒充完整采集')
     parser.add_argument('--require-all-covers', action='store_true', help='正式年鉴缺任一本封面时停止，不覆盖上一版')
-    parser.add_argument('--allow-draft', action='store_true', help='明确生成内部草稿，不能作为正式交付或工作台首页')
+    parser.add_argument('--allow-draft', action='store_true', help='可选：缺封面时另存内部草稿；默认正常交付书名占位年鉴')
     args = parser.parse_args()
     raw = json.loads(args.input.read_text('utf-8-sig'))
     data = adapt_data(raw, args.year)

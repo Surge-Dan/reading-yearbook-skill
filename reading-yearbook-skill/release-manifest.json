@@ -591,9 +591,9 @@
     },
     {
       "path": "references/distillation-method.md",
-      "sha256": "b8a6c245cb743772ef07e4bea16f5606f3eec2bd52f5eebcfa11682f3e9f336a",
+      "sha256": "f030b22d942da738023d1a2ce56d575a38bbb57b48f54106c618e5ff2338d507",
       "hash_kind": "text-lf",
-      "bytes": 13640
+      "bytes": 13554
     },
     {
       "path": "references/evidence-rules.md",
@@ -603,9 +603,9 @@
     },
     {
       "path": "references/html-yearbook.md",
-      "sha256": "cbda7d73ffc34cae98c6996c8747d80174a1cc9df64d83c917a202d403c29ec4",
+      "sha256": "8dc20b2ce6b7aec885fc8486d169e8b93e2389b6f1514304dfd71c1f037fbb8d",
       "hash_kind": "text-lf",
-      "bytes": 18588
+      "bytes": 18534
     },
     {
       "path": "references/output-contract.md",
@@ -681,9 +681,9 @@
     },
     {
       "path": "scripts/build_reading_html.py",
-      "sha256": "4998c0eb19b228127c03af97b512582c0d4e9aa200d7608a70935e7cdd78818f",
+      "sha256": "b4c1022c919e184803acaddb313e3e49dc4dfa6f7017284e00d626aee32cb9fb",
       "hash_kind": "text-lf",
-      "bytes": 27555
+      "bytes": 27850
     },
     {
       "path": "scripts/collage_materials.py",
@@ -711,9 +711,9 @@
     },
     {
       "path": "scripts/cover_contract.py",
-      "sha256": "d683b63ec4c9fd8ab71ff3fb92d2dfda330e114e9a5ec1ec11b4da32dcbe4248",
+      "sha256": "96ceb7c491623edc60d315e0a75cda4b3701c9610516faeea284ace4bac53223",
       "hash_kind": "text-lf",
-      "bytes": 3274
+      "bytes": 4078
     },
     {
       "path": "scripts/create_display_lettering.py",
@@ -789,9 +789,9 @@
     },
     {
       "path": "scripts/generate_reading_html.py",
-      "sha256": "f3e369b6585a16f25b4b7cdc2047af652f41ed7dbb740379ed48a30c86d54028",
+      "sha256": "033459f9a5598844b82cb9c9420e25f681999d05ab3884038bad88ea154f6c34",
       "hash_kind": "text-lf",
-      "bytes": 16034
+      "bytes": 15278
     },
     {
       "path": "scripts/html_contract.py",
@@ -837,9 +837,9 @@
     },
     {
       "path": "scripts/serve_ebook.py",
-      "sha256": "157b802c85f9b3514c00603a72931a91d4368abc145d1959ecfa838d7c528934",
+      "sha256": "fb70745825049d6fcd55686d560b90ee30ffcf292b142de4596585eaded6a772",
       "hash_kind": "text-lf",
-      "bytes": 30399
+      "bytes": 30195
     },
     {
       "path": "scripts/share_contract.py",
@@ -873,9 +873,9 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "1dc4175088b1d869dbf37a23379dae7de07921404fa055ca87d00af06dfd1982",
+      "sha256": "ebe5fe7afa44394aa18b4143a684dfb913a245e46a84059210af5874fa40d08a",
       "hash_kind": "text-lf",
-      "bytes": 12182
+      "bytes": 12154
     },
     {
       "path": "third_party/cangjie/extractors/case-extractor.md",

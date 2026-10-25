@@ -29,14 +29,14 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(result['status'],'complete')
             self.assertTrue(Path(result['output']).exists())
 
-    def test_missing_cover_blocks_delivery_preserving_final_file(self):
+    def test_missing_cover_delivers_report_with_placeholder(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/'index.html';target.write_text('previous valid file','utf-8')
             result=deliver(snapshot(),{'year':2026,'books':[]},{},target)
-            self.assertEqual(result['status'],'blocked')
+            self.assertEqual(result['status'],'partial')
             self.assertEqual(result['missing_covers'],1)
-            self.assertEqual(target.read_text('utf-8'),'previous valid file')
-            self.assertIsNone(result['output'])
+            self.assertTrue('reading-data' in target.read_text('utf-8'))
+            self.assertEqual(result['output'],str(target))
             self.assertFalse(target.with_name('index-draft.html').exists())
 
     def test_successful_empty_notes_do_not_block_delivery(self):

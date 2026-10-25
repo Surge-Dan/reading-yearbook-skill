@@ -1,4 +1,4 @@
-"""Cover completeness gate shared by building, delivery and legacy workbenches."""
+"""Cover validation with graceful fallback; strict completeness is opt-in."""
 import base64
 import io
 import json
@@ -69,10 +69,22 @@ class YearbookData(HTMLParser):
 
 
 def check_yearbook_page(page):
-    """Do not trust legacy draft names or stale collection-complete flags."""
+    """Reject malformed report data, not usable reports with missing covers."""
     parser=YearbookData(); parser.feed(page)
     if not parser.found: raise ValueError('年鉴缺少可核查的书目数据')
     data=json.loads(''.join(parser.parts))
-    if isinstance(data,dict) and data.get('source_mode')=='sample': return
+    if isinstance(data,dict) and data.get('source_mode')=='sample': return page
     missing=missing_covers(data)
-    if missing: raise MissingCovers(missing)
+    if not isinstance(data.get('summary'),dict) or not isinstance(data['summary'].get('monthly'),list):
+        raise ValueError('年鉴统计结构无效')
+    for book in data['books']:
+        if (not isinstance(book.get('book_id'),str) or not isinstance(book.get('title'),str)
+                or not isinstance(book.get('highlights'),list) or not isinstance(book.get('thoughts'),list)):
+            raise ValueError('年鉴书目结构无效')
+    if missing:
+        missing_ids={row['book_id'] for row in missing}
+        for book in data['books']:
+            if book['book_id'] in missing_ids: book['cover']=''
+        serialized=json.dumps(data,ensure_ascii=False,allow_nan=False).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
+        page=page.replace(''.join(parser.parts),serialized,1)
+    return page
