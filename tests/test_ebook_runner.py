@@ -124,7 +124,7 @@ class RunnerTests(unittest.TestCase):
             count = runner.calls_to_model
             result = distill(source, output, runner)
             self.assertEqual(result['quality_status'], 'completed')
-            self.assertEqual(runner.calls_to_model-count, 11)  # Includes the new cached review stage.
+            self.assertEqual(runner.calls_to_model-count, 7)  # One joint extraction plus the cached review stage.
     def test_stage_timeout_is_bounded(self):
         for seconds in (0, 29, 901):
             with self.assertRaisesRegex(ValueError, '30.*900'):

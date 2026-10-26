@@ -38,6 +38,22 @@ def local_json(path, root):
     return strict_json(path.read_text('utf-8'))
 
 
+def local_source(path):
+    """Assistant-only local input; reject redirects before opening any bytes."""
+    if not isinstance(path,str) or not Path(path).is_absolute(): raise ValueError('需要电子书绝对路径')
+    source=Path(path)
+    if source.drive.startswith('\\\\') or str(source).startswith('\\\\'): raise ValueError('仅支持本机普通文件路径')
+    for ancestor in (source,*source.parents):
+        info=ancestor.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+            raise ValueError('不接受符号链接或重解析路径')
+    if source.suffix.lower() not in ('.epub','.pdf','.txt','.md') or not source.is_file() or not 0<source.stat().st_size<=32*1024*1024:
+        raise ValueError('需要不超过 32 MB 的 EPUB/PDF/TXT/MD 正文')
+    with source.open('rb') as handle: content=handle.read(32*1024*1024+1)
+    if not content or len(content)>32*1024*1024: raise ValueError('文件为空或超过 32 MB')
+    return source.name,content
+
+
 class Client:
     def __init__(self, output):
         self.output = Path(output).absolute()
@@ -85,22 +101,37 @@ class Client:
 def main():
     parser = argparse.ArgumentParser(description='年年阅当前 Agent 阶段交接')
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('action', choices=['list', 'claim', 'next', 'submit', 'release'])
+    parser.add_argument('action', choices=['list', 'create-title', 'create-file', 'select-book', 'cancel', 'retry', 'approve', 'claim', 'next', 'submit', 'release'])
     parser.add_argument('--job')
     parser.add_argument('--session')
     parser.add_argument('--host')
     parser.add_argument('--model', default='unknown')
     parser.add_argument('--request-id')
     parser.add_argument('--reply', type=Path)
+    parser.add_argument('--path', type=Path)
+    parser.add_argument('--title')
+    parser.add_argument('--author', default='')
+    parser.add_argument('--focus', default='')
+    parser.add_argument('--book-id')
+    parser.add_argument('--selection-id')
     args = parser.parse_args()
     try:
         client = Client(args.output)
         if args.action == 'list':
             result = client.call('list')
+        elif args.action in ('create-title','create-file'):
+            if not args.session: raise ValueError('需要 --session')
+            data={'session':args.session,'focus':args.focus}
+            if args.action=='create-title':data.update(title=args.title,author=args.author)
+            else:
+                if not args.path:raise ValueError('需要 --path')
+                data['path']=str(args.path.absolute())
+            result=client.call(args.action,data)
         else:
             if not args.job or not args.session:
                 raise ValueError('需要 --job 和 --session')
             data = {'session': args.session}
+            if args.action=='select-book':data.update(book_id=args.book_id,selection_id=args.selection_id)
             if args.action == 'claim':
                 data.update(host=args.host, model=args.model)
             if args.action == 'submit':

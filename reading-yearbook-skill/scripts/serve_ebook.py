@@ -167,7 +167,7 @@ class JobStore:
         if any(j['state'] in ACTIVE for j in self.jobs.values()):
             raise BusyError('当前正在蒸馏一本书，请等待完成或先取消')
 
-    def create(self, filename, content, focus=''):
+    def create(self, filename, content, focus='', assistant_session=None):
         suffix = Path(filename).suffix.lower()
         if suffix not in EXTENSIONS:
             raise ValueError('支持 EPUB、PDF、TXT 和 MD 文件')
@@ -191,6 +191,8 @@ class JobStore:
                    'created_at': datetime.now(timezone.utc).isoformat(),
                    'state': 'queued', 'stage': 'queued', 'message': '正在准备正文',
                    'completed': 0, 'total': 0, 'error': None}
+            if assistant_session is not None:
+                job.update(assistant_session=assistant_session,assistant_input=True)
             self.jobs[job_id] = job
             self._start(job)
             return self.get(job_id)
@@ -232,26 +234,49 @@ class JobStore:
                 job.update(state='awaiting_agent', stage='handoff', message='书名已接收。请回同一助手对话说“开始蒸馏”。')
                 self._save(job)
                 return
-            try:
-                from ebook_document import parse_document
-                document = parse_document(self.jobs_dir / job['id'] / ('source' + job['suffix']))
-                atomic_json(self.jobs_dir / job['id'] / 'parsed-source.json', document)
-            except Exception as error:
-                job.update(state='failed', error=public_error(error), message='正文未能解析，请检查文件')
+            if job.get('assistant_input'):
+                job.update(stage='prepare',message='正文已接收，正在准备来源')
                 self._save(job)
+                self.executor.submit(self._prepare_agent_source,job['id'],event)
                 return
-            job.update(state='awaiting_agent', stage='handoff',
-                       message='上传完成。请回到启动此网页的助手对话，说“开始蒸馏”。')
-            self._save(job)
+            self._prepare_agent_source(job['id'],event)
             return
         self._save(job)
         self.executor.submit(self._run, job['id'], event, allow_large)
+
+    def _prepare_agent_source(self,job_id,event):
+        """Prepare assistant uploads off the HTTP thread; return a job ID immediately."""
+        with self.lock:
+            if event.is_set() or self.events.get(job_id) is not event:return
+            job=self.jobs[job_id]
+        try:
+            from ebook_document import parse_document
+            document=parse_document(self.jobs_dir/job_id/('source'+job['suffix']))
+            error=None
+        except Exception as failure:
+            document=None;error=public_error(failure)
+        with self.lock:
+            if event.is_set() or self.events.get(job_id) is not event:return
+            if error:
+                job.update(state='failed',error=error,message='正文未能解析，请检查文件')
+            else:
+                atomic_json(self.jobs_dir/job_id/'parsed-source.json',document)
+                job.update(state='awaiting_agent',stage='handoff',message='正文已准备好，等待当前助手领取')
+            self._save(job)
 
     def agent_action(self, job_id, action, data):
         if not self.agent_mode or not isinstance(data, dict):
             raise ValueError('当前工作台不是当前 Agent 模式')
         with self.lock:
             job = self._job(job_id)
+            owner=job.get('assistant_session')
+            bound=self.runners.get(job_id)
+            if owner is None and bound: owner=bound.identity['session']
+            if owner is not None and data.get('session')!=owner: raise ValueError('任务由另一个对话持有')
+            if action in ('select-book','cancel','retry','approve'):
+                if not owner: raise ValueError('请先由当前助手领取任务')
+                if action=='select-book': return {'job':self.select_book(job_id,data.get('book_id'),data.get('selection_id'))}
+                return {'job':self.action(job_id,action)}
             if action == 'claim':
                 if job.get('runner_mode') != 'current-agent-instructed-tools':
                     raise ValueError('历史 CLI 任务不能由当前 Agent 领取')
@@ -264,6 +289,7 @@ class JobStore:
                             job.update(update)
                             self._save(job)
                 runner = self.runner.bind(self.jobs_dir / job_id, job_id, data, notify, event)
+                job['assistant_session']=data['session']
                 self.runners[job_id] = runner
                 job.update(state='queued', message='当前 Agent 已领取，正在准备正文')
                 self._save(job)
@@ -321,7 +347,7 @@ class JobStore:
                     with self.lock:
                         if event.is_set() or self.events.get(job_id) is not event: raise InterruptedError('已取消')
                         job.update(state='needs_book_confirmation',book_candidates=books,selection_id=uuid.uuid4().hex,
-                                   selected_book=None,message='有同名书，请在网页选择作者或版本后继续')
+                                   selected_book=None,message='有同名书，请在助手对话中选择作者或版本后继续')
                         self._save(job)
                     while True:
                         if event.is_set(): raise InterruptedError('已取消')
@@ -372,6 +398,9 @@ class JobStore:
                 runner.revoke('本轮任务已结束，请检查任务状态')
             with self.lock:
                 if self.events.get(job_id) is event:
+                    if job['state']!='completed':
+                        from ebook_pipeline import _archive_generation
+                        _archive_generation(deep)
                     self._save(job)
 
     def select_book(self, job_id, selected, selection_id=None):
@@ -494,8 +523,22 @@ def create_server(store, port=0, yearbook=None):
                     data = strict_json(body.decode('utf-8'))
                     if parsed.path == '/api/agent/list':
                         self.send(200, store.state())
+                    elif parsed.path in ('/api/agent/create-title','/api/agent/create-file'):
+                        if not store.agent_mode: raise ValueError('助手入口需要当前 Agent 模式')
+                        session=data.get('session')
+                        if not isinstance(session,str) or not session.strip() or len(session)>200: raise ValueError('需要当前助手 session')
+                        with store.lock:
+                            if parsed.path.endswith('create-title'):
+                                job=store.create_title(data.get('title'),data.get('author',''),data.get('focus',''))
+                            else:
+                                from ebook_agent import local_source
+                                filename,content=local_source(data.get('path'))
+                                job=store.create(filename,content,data.get('focus',''),assistant_session=session)
+                            store.jobs[job['id']]['assistant_session']=session
+                            store._save(store.jobs[job['id']])
+                        self.send(202,{'job':store.get(job['id'])})
                     else:
-                        match = re.fullmatch(r'/api/agent/([a-f0-9]{32})/(claim|next|submit|release)', parsed.path)
+                        match = re.fullmatch(r'/api/agent/([a-f0-9]{32})/(claim|next|submit|release|select-book|cancel|retry|approve)', parsed.path)
                         if not match:
                             self.send(404, {'error': '操作不存在'})
                             return

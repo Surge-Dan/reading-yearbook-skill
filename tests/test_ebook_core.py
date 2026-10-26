@@ -30,6 +30,10 @@ class ContractRunner:
         gaps=['未读到关键条件'] if self.gaps else []
         if 'OUTPUT_CONTRACT:stage0' in prompt:
             return {'summary':'原书骨架','genre':'methodology' if self.methods else 'literary','scope_note':'基于所有正文批次识别主题与适用范围','themes':[theme],'key_tasks':[task] if self.methods or self.gaps else [],'gaps':gaps}
+        if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
+            return {'candidates':[candidate] if self.methods else [],'category_scans':[
+                {'kind':kind,'scanned_chunk_ids':payload['chunk']['chunk_ids'],'scope_note':'全批次扫描完成，无其他本类候选'}
+                for kind in ('framework','principle','case','counter-example','glossary')],'gaps':gaps}
         if 'OUTPUT_CONTRACT:extraction' in prompt:
             return {'candidates':[candidate] if self.methods and payload['extractor_kind']=='framework' else [],'scanned_chunk_ids':payload['chunk']['chunk_ids'],'scope_note':'全批次扫描完成，无其他本类候选','gaps':gaps}
         if 'OUTPUT_CONTRACT:batched-v1-alignment' in prompt:
@@ -77,7 +81,7 @@ class CoreTests(unittest.TestCase):
             p=Path(d)/'novel.txt'; p.write_text('人物在河边回忆童年。', encoding='utf-8'); r=ContractRunner()
             result=m.distill(p,Path(d)/'out',r)
             self.assertEqual(result['methods'],[]); self.assertTrue(result['coverage']['complete'])
-            self.assertGreaterEqual(len(r.calls),11)
+            self.assertEqual(len(r.calls),8)
             count=len(r.calls); m.distill(p,Path(d)/'out',r); self.assertEqual(count,len(r.calls))
             self.assertTrue((Path(d)/'out/DIGEST.md').exists())
 
@@ -226,9 +230,8 @@ class CoreTests(unittest.TestCase):
         class Runner(ContractRunner):
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
-                if 'OUTPUT_CONTRACT:extraction' in prompt:
-                    payload=json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])
-                    if payload['extractor_kind']=='principle': result['candidates']=[{'id':'r1','title':'参考原则','type':'principle','summary':'有来源但缺乏独立执行步骤的参考解释','task_ids':[],'sources':[self.source]}]
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
+                    result['candidates']=[{'id':'r1','title':'参考原则','type':'principle','summary':'有来源但缺乏独立执行步骤的参考解释','task_ids':[],'sources':[self.source]}]
                 if 'OUTPUT_CONTRACT:stage0' in prompt: result['key_tasks']=[{'id':'t1','title':'理解参考原则','sources':[self.source]}]
                 if 'OUTPUT_CONTRACT:batched-v1-batch' in prompt:
                     result['candidates']=[{'id':'r1','status':'reference','reason':'有阅读价值但无可执行步骤','task_ids':['t1'],'sources':[self.source]}]
@@ -269,19 +272,17 @@ class CoreTests(unittest.TestCase):
         class Runner(ContractRunner):
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
-                if 'OUTPUT_CONTRACT:extraction' in prompt:
-                    payload=json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])
-                    if payload['extractor_kind']=='principle':
-                        result['candidates']=[{'id':'c1','title':'另一原则','type':'principle','summary':'不同候选','task_ids':['t1'],'sources':[self.source]}]
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
+                    result['candidates'].append({'id':'c1','title':'另一原则','type':'principle','summary':'不同候选','task_ids':['t1'],'sources':[self.source]})
                 return result
         for text in ('原文','原文'*7000):
             with self.subTest(scope='category' if len(text)==2 else 'batch'),tempfile.TemporaryDirectory() as d:
                 p=Path(d)/'b.txt'; p.write_text(text,encoding='utf-8'); runner=Runner(methods=True)
-                with self.assertRaisesRegex(ValueError,'候选 ID'):
+                with self.assertRaisesRegex(ValueError,'候选 ID|契约'):
                     m.distill(p,Path(d)/'out',runner)
                 self.assertFalse(any('OUTPUT_CONTRACT:verification' in call for call in runner.calls))
                 # Reused extraction replies must go through the same global gate.
-                with self.assertRaisesRegex(ValueError,'候选 ID'):
+                with self.assertRaisesRegex(ValueError,'候选 ID|契约'):
                     m.distill(p,Path(d)/'out',runner)
                 self.assertFalse(any('OUTPUT_CONTRACT:verification' in call for call in runner.calls))
 
@@ -300,16 +301,14 @@ class CoreTests(unittest.TestCase):
             corrected=False
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
-                if 'OUTPUT_CONTRACT:extraction' in prompt:
-                    payload=json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])
-                    if payload['extractor_kind']=='principle':
-                        result['candidates']=[{'id':'r2' if self.corrected else 'c1','title':'另一原则','type':'principle','summary':'不同候选','task_ids':[],'sources':[self.source]}]
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
+                    result['candidates'].append({'id':'r2' if self.corrected else 'c1','title':'另一原则','type':'principle','summary':'不同候选','task_ids':[],'sources':[self.source]})
                 if 'OUTPUT_CONTRACT:verification' in prompt:
                     result['candidates'].append({'id':'r2','status':'reference','reason':'仅作参考','task_ids':[],'sources':[self.source]})
                 return result
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'b.txt'; p.write_text('原文',encoding='utf-8'); runner=Runner(methods=True); out=Path(d)/'out'
-            with self.assertRaisesRegex(ValueError,'候选 ID'): m.distill(p,out,runner)
+            with self.assertRaisesRegex(ValueError,'候选 ID|契约'): m.distill(p,out,runner)
             files=list((out/'.cache').glob('*.json'))
             conflict=[f for f in files if any(c.get('title')=='另一原则' for c in json.loads(f.read_text('utf-8')).get('candidates',[]))]
             valid={f.name:f.read_bytes() for f in files if f not in conflict}
@@ -319,17 +318,16 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(result['quality_status'],'completed')
             self.assertEqual(result['references'][0]['id'],'r2')
             self.assertEqual(len([call for call in runner.calls if 'OUTPUT_CONTRACT:stage0' in call]),2)
-            framework=lambda call: 'OUTPUT_CONTRACT:extraction' in call and json.loads(call.split('SOURCE_DATA_JSON:\n',1)[1])['extractor_kind']=='framework'
-            self.assertEqual(sum(framework(call) for call in runner.calls),1)
+            self.assertEqual(sum('OUTPUT_CONTRACT:joint-extraction' in call for call in runner.calls),2)
             self.assertEqual({name:(out/'.cache'/name).read_bytes() for name in valid},valid)
             # Simulate a conflicting cache written by the previous implementation.
             principle=next(f for f in (out/'.cache').glob('*.json') if any(c.get('title')=='另一原则' for c in json.loads(f.read_text('utf-8')).get('candidates',[])))
-            legacy=json.loads(principle.read_text('utf-8')); legacy['candidates'][0]['id']='c1'
+            legacy=json.loads(principle.read_text('utf-8')); legacy['candidates'][1]['id']='c1'
             principle.write_text(json.dumps(legacy,ensure_ascii=False),encoding='utf-8')
             calls_before=len(runner.calls)
             self.assertEqual(m.distill(p,out,runner)['quality_status'],'completed')
             self.assertEqual(len(runner.calls),calls_before+1)
-            self.assertEqual(json.loads(principle.read_text('utf-8'))['candidates'][0]['id'],'r2')
+            self.assertEqual(json.loads(principle.read_text('utf-8'))['candidates'][1]['id'],'r2')
             self.assertEqual({name:(out/'.cache'/name).read_bytes() for name in valid},valid)
 
     def test_pressure_cache_retries_after_invalid_plan(self):
@@ -382,7 +380,7 @@ class CoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'b.txt'; p.write_text('原文',encoding='utf-8'); r=ContractRunner(methods=True)
             result=m.distill(p,Path(d)/'out',r)
-            self.assertEqual(len(r.calls),18)  # Includes the independently cached reading review.
+            self.assertEqual(len(r.calls),14)  # One joint extraction and the cached reading review.
             self.assertEqual(result['methods'][0]['verification']['status'],'validated')
 
     def test_short_chapters_are_batched_without_cost_pause(self):
@@ -391,7 +389,7 @@ class CoreTests(unittest.TestCase):
             p=Path(d)/'b.md'; p.write_text('\n'.join('# Chapter '+str(i)+'\n'+'字'*100 for i in range(13)),encoding='utf-8'); r=ContractRunner()
             result=m.distill(p,Path(d)/'out',r)
             self.assertEqual(result['coverage']['chunks_total'],13)
-            self.assertEqual(len(r.calls),12)  # One bounded review, not another extraction pass.
+            self.assertEqual(len(r.calls),8)  # One bounded review and one joint extraction.
 
     def test_invalid_final_output_is_not_reused_as_valid_cache(self):
         m=self.module('ebook_pipeline')

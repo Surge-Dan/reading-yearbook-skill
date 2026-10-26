@@ -12,6 +12,7 @@ from ebook_verification import verification_batches
 import ebook_verification as verifier
 
 VERSION='nian-cangjie-3-reading'
+EXTRACTION_KINDS=('framework','principle','case','counter-example','glossary')
 SOURCE_VERSION='nian-cangjie-2'  # Unchanged parsing/extraction/verification caches stay reusable.
 UPSTREAM=Path(__file__).resolve().parents[1]/'third_party/cangjie'
 
@@ -41,6 +42,8 @@ def _stage_schema(stage):
     """Constrain structured CLI output; deep evidence checks remain authoritative."""
     if stage in ('stage0-map','stage0'):
         fields={'summary':'string','genre':'string','scope_note':'string','themes':'array','key_tasks':'array','gaps':'array'}
+    elif stage=='extract-joint-v1':
+        fields={'candidates':'array','category_scans':'array','gaps':'array'}
     elif stage.startswith('extract-'):
         fields={'candidates':'array','scanned_chunk_ids':'array','scope_note':'string','gaps':'array'}
     elif stage=='batched-v1-alignment':
@@ -74,7 +77,7 @@ def _archive_generation(output):
         if path.is_symlink() or (junction and junction()) or not path.resolve().is_relative_to(root):
             raise ValueError('输出归档路径被符号链接或 junction 重定向，无法安全归档')
     checked(output)
-    owned=[output/name for name in ('analysis.json','DIGEST.md','BOOK_OVERVIEW.md','GLOSSARY.md','validation-report.json','methods') if (output/name).exists()]
+    owned=[output/name for name in ('distillation.json','analysis.json','DIGEST.md','BOOK_OVERVIEW.md','GLOSSARY.md','validation-report.json','methods') if (output/name).exists()]
     if owned:
         history_root=output/'.history'; history=history_root/uuid.uuid4().hex
         # Complete source and destination preflight before any directory creation
@@ -156,6 +159,19 @@ def _stage_contract(stage,value,payload):
             if task['id'] in ids: fail()
             ids.add(task['id'])
         if stage=='stage0' and not {t['id'] for m in payload['all_chunk_maps'] for t in m['key_tasks']}.issubset(ids): fail()
+    elif stage=='extract-joint-v1':
+        scans=rows('category_scans'); kinds=[]
+        for scan in scans:
+            text(scan,'kind'); text(scan,'scope_note'); strings(scan,'scanned_chunk_ids')
+            if scan['kind'] not in EXTRACTION_KINDS or scan['kind'] in kinds or scan['scanned_chunk_ids']!=payload['chunk']['chunk_ids']: fail()
+            kinds.append(scan['kind'])
+        if set(kinds)!=set(EXTRACTION_KINDS): fail()
+        ids=set()
+        for candidate in rows('candidates'):
+            for key in ('id','title','type','summary'): text(candidate,key)
+            strings(candidate,'task_ids'); sources(candidate)
+            if candidate['type'] not in EXTRACTION_KINDS or candidate['id'] in ids: fail()
+            ids.add(candidate['id'])
     elif stage.startswith('extract-'):
         text(value,'scope_note'); strings(value,'scanned_chunk_ids')
         if value['scanned_chunk_ids']!=payload['chunk']['chunk_ids']: fail()
@@ -308,7 +324,7 @@ def distill(path,output_dir,runner,progress=None,cancel_event=None,focus='',allo
         safe_stem=re.sub(r'[<>:"/\\|?*\x00-\x1f]','-',stem).strip(' .')[:200]
         if safe_stem: document['book']['title']=safe_stem
     chunks=build_chunks(document); batches=_model_batches(chunks)
-    estimate={'characters':sum(len(e['text']) for e in document['elements']),'chunks':len(chunks),'model_batches':len(batches),'minimum_model_calls':len(batches)*6+6,'pressure_model_calls':4,'pipeline':VERSION}
+    estimate={'characters':sum(len(e['text']) for e in document['elements']),'chunks':len(chunks),'model_batches':len(batches),'minimum_model_calls':len(batches)*2+6,'pressure_model_calls':4,'pipeline':VERSION,'estimate_note':'每批一次理解和一次联合提取；核验批数随候选动态更新，压力演练另计最多四次。'}
     if (estimate['characters']>100000 or estimate['minimum_model_calls']>65) and not allow_large: raise BudgetRequired(estimate)
     if runner is None or not runner.info().get('available'): raise ValueError('未找到可用的本地模型。请先安装 Codex 或 Claude CLI，并完成登录。')
     cache=output/'.cache'; cache.mkdir(parents=True,exist_ok=True)
@@ -379,17 +395,20 @@ def distill(path,output_dir,runner,progress=None,cancel_event=None,focus='',allo
     for chunk in batches:
         maps.append(call('stage0-map',_rules('methodology/01-stage0-adler.md'),{'book':document['book'],'chunk':chunk},overview_contract))
     overview=call('stage0',_rules('methodology/01-stage0-adler.md','templates/BOOK_OVERVIEW.md.template'),{'book':document['book'],'all_chunk_maps':maps},overview_contract)
-    extracts={}
+    extracts={kind:[] for kind in EXTRACTION_KINDS}
     extraction_ids=set()
     def unique_extraction(value):
         for candidate in value['candidates']:
             if candidate['id'] in extraction_ids: raise ValueError('提取批次或类别间候选 ID 重复：'+candidate['id'])
-    for kind in ('framework','principle','case','counter-example','glossary'):
-        extracts[kind]=[]
-        for chunk in batches:
-            extracts[kind].append(call('extract-'+kind,_rules('methodology/02-stage1-parallel-extract.md','extractors/'+kind+'-extractor.md'),{'overview':overview,'chunk':chunk,'extractor_kind':kind},'extraction: EXACT JSON {candidates:[{id:unique extractor+chunk ID,title,type,summary,task_ids:[str],sources:[{element_id,quote,location}]}], scanned_chunk_ids:[ALL provided chunk_ids in original order], scope_note:nonempty reason explaining scope/results including zero candidates, gaps:[str]}. Never omit singleton mechanisms; do not let empty candidates imply unexamined coverage.',validate=unique_extraction))
-            for candidate in extracts[kind][-1]['candidates']:
-                extraction_ids.add(candidate['id'])
+    for chunk in batches:
+        joint=call('extract-joint-v1',_rules('methodology/02-stage1-parallel-extract.md',*['extractors/'+kind+'-extractor.md' for kind in EXTRACTION_KINDS]),
+            {'overview':overview,'chunk':chunk,'extraction_kinds':list(EXTRACTION_KINDS),'extraction_version':'joint-v1'},
+            'joint-extraction: EXACT JSON {candidates:[{id:globally unique category+chunk ID,title,type:framework|principle|case|counter-example|glossary,summary,task_ids:[str],sources:[{element_id,quote,location}]}],category_scans:[{kind:one of the five categories,scanned_chunk_ids:[ALL provided chunk_ids in original order],scope_note:nonempty explicit scan findings including no candidates}],gaps:[str]}. Read all supplied text once across the five lenses. Return all five category_scans exactly once, including empty categories; preserve singleton mechanisms, independent conditions and exact citations.',validate=unique_extraction)
+        extraction_ids.update(c['id'] for c in joint['candidates'])
+        for scan in joint['category_scans']:
+            kind=scan['kind']
+            extracts[kind].append({'candidates':[c for c in joint['candidates'] if c['type']==kind],
+                'scanned_chunk_ids':scan['scanned_chunk_ids'],'scope_note':scan['scope_note'],'gaps':joint['gaps']})
     candidates=[c for group in extracts.values() for batch in group for c in batch['candidates']]
     catalog=verifier.candidate_catalog(candidates)
     retained_gaps=list(dict.fromkeys(overview['gaps']+[g for group in extracts.values() for batch in group for g in batch['gaps']]))
@@ -433,9 +452,12 @@ def distill(path,output_dir,runner,progress=None,cancel_event=None,focus='',allo
     validate_map(topics,document['elements'])
     contract+='\nAlso return insights:[{title,explanation,sources}] and topic_coverage:[{topic_id,status:explained|missing,item_refs:["themes:0" or "methods:0" etc],reason}]. Every content_map ID exactly once. Explain key author arguments and conditions; missing evidence stays missing. Insights connect the focus to actual material, never invent user experience. Overview is not a first-person review.'
     contract+='\nAlso return book_context:[{kind:characters|logic|intent,title,explanation,sources}], empty only where unsupported or irrelevant. Topic destinations may also reference book_context:0 etc.'
+    from distillation_result import READING_FIELDS_CONTRACT, validate_reading_fields, make_bundle
+    contract+='\n'+READING_FIELDS_CONTRACT
     def validate_reading(value):
         _analysis_contract(value); validate_coverage(value,topics)
         validate_context(value,document['elements'])
+        validate_reading_fields(value,document['elements'],'upload')
         if not isinstance(value.get('insights'),list): raise ValueError('缺少启发列表')
         for item in value['insights']:
             if not isinstance(item,dict) or not all(isinstance(item.get(k),str) and item[k].strip() for k in ('title','explanation')): raise ValueError('启发字段无效')
@@ -552,14 +574,20 @@ def distill(path,output_dir,runner,progress=None,cancel_event=None,focus='',allo
     with tempfile.TemporaryDirectory(prefix='.generation-',dir=output) as temporary:
         staging=Path(temporary)
         _render_outputs(staging,analysis,overview,audit,trials,invalid)
+        _write(staging/'distillation.json',_json(make_bundle(analysis,document,(staging/'DIGEST.md').read_text('utf-8'))))
         _cancel(cancel_event)
         if hasattr(runner,'check'): runner.check()
         try:
             # Publish the completion marker last; active files have one generation.
-            for name in ('BOOK_OVERVIEW.md','DIGEST.md','GLOSSARY.md','validation-report.json','methods','analysis.json'):
-                _cancel(cancel_event)
-                if hasattr(runner,'check'): runner.check()
-                (staging/name).rename(output/name)
+            def publish():
+                for name in ('BOOK_OVERVIEW.md','DIGEST.md','GLOSSARY.md','validation-report.json','methods','analysis.json','distillation.json'):
+                    _cancel(cancel_event)
+                    if hasattr(runner,'check'): runner.check()
+                    (staging/name).rename(output/name)
+            if hasattr(runner,'commit'): runner.commit(publish)
+            else: publish()
+            _cancel(cancel_event)
+            if hasattr(runner,'check'): runner.check()
         except BaseException:
             _archive_generation(output)
             raise
@@ -567,7 +595,7 @@ def distill(path,output_dir,runner,progress=None,cancel_event=None,focus='',allo
 
 def _render_outputs(output,analysis,overview,audit,trials,invalid):
     sources={}
-    for category in ('book_context','themes','methods','cases','counterexamples','glossary','references','insights'):
+    for category in ('book_context','themes','methods','cases','counterexamples','glossary','references','insights','reading_lenses','memorable_passages'):
         for item in analysis.get(category,[]):
             for source in item['sources']:
                 entry=sources.setdefault(source['element_id'],[])
@@ -588,6 +616,9 @@ def _render_outputs(output,analysis,overview,audit,trials,invalid):
     for item in analysis.get('book_context', []): digest+=['','### '+item['title'],'',prose(item['explanation'])]
     if analysis['themes']: digest+=['','## 核心观点']
     for item in analysis['themes']: digest+=['','### '+item['title'],'',prose(item['explanation'])]
+    for item in analysis.get('reading_lenses',[]): digest+=['','## '+item['title'],'',prose(item['text']),'',links(item)]
+    if analysis.get('memorable_passages'): digest+=['','## 值得保留的金句']
+    for item in analysis.get('memorable_passages',[]): digest+=['','> '+item['text'].replace('\n','\n> '),'',item['why_it_matters'],'',links(item)]
     methods_dir=output/'methods'; methods_dir.mkdir()
     if analysis['methods']: digest+=['','## 值得带走的方法']
     for method in analysis['methods']:

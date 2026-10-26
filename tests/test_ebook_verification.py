@@ -54,7 +54,7 @@ class VerificationTests(unittest.TestCase):
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
                 payload=json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])
-                if 'OUTPUT_CONTRACT:extraction' in prompt and payload['extractor_kind']=='framework':
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
                     result['candidates']=[dict(self_outer.candidate(cid,'e0000001'),sources=[self.source]) for cid in ('c1','c2')]
                 if 'OUTPUT_CONTRACT:batched-v1-batch' in prompt:
                     for row in result['candidates']: row.update(status='reference',reason='保留独立机制参考')
@@ -67,7 +67,7 @@ class VerificationTests(unittest.TestCase):
             path=Path(directory)/'book.txt'; path.write_text('原文',encoding='utf-8'); output=Path(directory)/'out'; runner=Runner(gaps=True)
             with self.assertRaises(ValueError): ebook_pipeline.distill(path,output,runner)
             before={p.name:p.read_bytes() for p in (output/'.cache').glob('*.json')}
-            self.assertEqual(len(before),9)
+            self.assertEqual(len(before),5)
             self.assertEqual(len(list((output/'.diagnostics').glob('batched-v1-global*.json'))),1)
             runner.merge=False; count=len(runner.calls); updates=[]
             ebook_pipeline.distill(path,output,runner,progress=updates.append)
@@ -84,7 +84,7 @@ class VerificationTests(unittest.TestCase):
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
                 payload=json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])
-                if 'OUTPUT_CONTRACT:extraction' in prompt and payload['extractor_kind']=='framework':
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
                     result['candidates']=[dict(self_outer.candidate('c'+str(i),'e0000001'),sources=[self.source]) for i in range(self.candidate_count)]
                 if 'OUTPUT_CONTRACT:batched-v1-batch' in prompt:
                     for row in result['candidates']: row.update(status='reference',reason='保留参考')
@@ -220,7 +220,7 @@ class VerificationTests(unittest.TestCase):
             extracted=False
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
-                if 'OUTPUT_CONTRACT:extraction' in prompt and json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])['extractor_kind']=='framework':
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
                     if self.extracted: result['candidates']=[]
                     self.extracted=True
                 return result
@@ -247,7 +247,7 @@ class VerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'book.txt'; path.write_text('原文',encoding='utf-8'); output=Path(directory)/'out'
             with self.assertRaises(ValueError): ebook_pipeline.distill(path,output,Runner(methods=True))
-            self.assertEqual(len(list((output/'.cache').glob('*.json'))),8)
+            self.assertEqual(len(list((output/'.cache').glob('*.json'))),4)
             self.assertEqual(len(list((output/'.diagnostics').glob('batched-v1-batch-1*.json'))),1)
 
     def test_merged_candidate_sources_and_ids_survive_final_methods(self):
@@ -257,8 +257,8 @@ class VerificationTests(unittest.TestCase):
         class Runner(ContractRunner):
             def generate(self,prompt,*args,**kwargs):
                 result=super().generate(prompt,*args,**kwargs)
-                if 'OUTPUT_CONTRACT:extraction' in prompt and json.loads(prompt.split('SOURCE_DATA_JSON:\n',1)[1])['extractor_kind']=='principle':
-                    result['candidates']=[dict(self_outer.candidate('c2','e0000001'),sources=[dict(self.source,quote='条件')])]
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
+                    result['candidates'].append(dict(self_outer.candidate('c2','e0000001'),type='principle',sources=[dict(self.source,quote='条件')]))
                 if 'OUTPUT_CONTRACT:batched-v1-alignment' in prompt:
                     result['groups']=[{'candidate_ids':['c1','c2'],'canonical_id':'c1','reason':'同机制待核验'}]
                 if 'OUTPUT_CONTRACT:batched-v1-batch' in prompt:
@@ -346,7 +346,7 @@ class VerificationTests(unittest.TestCase):
                         self.calls.append(prompt)
                         return {'candidates':[],'gaps':[]} if self.broken=='batched-v1-batch' else {'adjustments':[],'task_audit':[{'task_id':'fake'}],'gaps':[]}
                 result=super().generate(prompt,*args,**kwargs)
-                if 'OUTPUT_CONTRACT:extraction' in prompt and payload['extractor_kind']=='framework':
+                if 'OUTPUT_CONTRACT:joint-extraction' in prompt:
                     result['candidates']=[{'id':'c'+str(i),'title':'机制 '+str(i),'type':'framework','summary':'独立机制 '+str(i),'task_ids':[],'sources':[self.source]} for i in range(33)]
                 if 'OUTPUT_CONTRACT:batched-v1-batch' in prompt:
                     for row in result['candidates']: row.update(status='reference',reason='保留来源参考')
@@ -356,7 +356,7 @@ class VerificationTests(unittest.TestCase):
                 path=Path(directory)/'book.txt'; path.write_text('原文',encoding='utf-8'); output=Path(directory)/'out'; event=threading.Event() if cancel else None; runner=Runner(broken,event)
                 with self.assertRaises(InterruptedError if cancel else ValueError): ebook_pipeline.distill(path,output,runner,cancel_event=event)
                 before={p.name:p.read_bytes() for p in (output/'.cache').glob('*.json')}
-                self.assertEqual(len(before),9 if broken=='batched-v1-batch' else 11)
+                self.assertEqual(len(before),5 if broken=='batched-v1-batch' else 7)
                 runner.broken=None
                 if event: event.clear()
                 count=len(runner.calls); ebook_pipeline.distill(path,output,runner,cancel_event=event)
@@ -378,15 +378,15 @@ class VerificationTests(unittest.TestCase):
             path=Path(directory)/'book.txt'; path.write_text('原文',encoding='utf-8'); first=Stop(methods=True); second=Stop(methods=True)
             for engine,out,runner in [(namespace['distill'],'old',first),(ebook_pipeline.distill,'new',second)]:
                 with self.assertRaises(RuntimeError): engine(path,Path(directory)/out,runner)
-            self.assertEqual(len(first.calls),7); self.assertEqual(len(second.calls),7)
+            self.assertEqual(len(first.calls),7); self.assertEqual(len(second.calls),3)
             # Understanding now retains characters and argument progression. These
             # two stages must not reuse an older, narrower understanding prompt.
             for old,new in zip(first.calls[:2],second.calls[:2]): self.assertNotEqual(old,new)
-            self.assertEqual(first.calls[2:],second.calls[2:])
+            self.assertIn('OUTPUT_CONTRACT:joint-extraction',second.calls[2])
             caches=lambda out:{p.name:p.read_bytes() for p in (Path(directory)/out/'.cache').glob('*.json')}
             old,new=caches('old'),caches('new')
             common=old.keys() & new.keys()
-            self.assertEqual(len(common),5)
+            self.assertEqual(len(common),0)
             for key in common: self.assertEqual(old[key],new[key])
 
 if __name__=='__main__': unittest.main()
