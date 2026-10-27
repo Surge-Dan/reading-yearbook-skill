@@ -257,10 +257,14 @@ class JobStore:
             document=None;error=public_error(failure)
         with self.lock:
             if event.is_set() or self.events.get(job_id) is not event:return
+            if not error:
+                try:
+                    atomic_json(self.jobs_dir/job_id/'parsed-source.json',document)
+                except Exception as failure:
+                    error=public_error(failure)
             if error:
                 job.update(state='failed',error=error,message='正文未能解析，请检查文件')
             else:
-                atomic_json(self.jobs_dir/job_id/'parsed-source.json',document)
                 job.update(state='awaiting_agent',stage='handoff',message='正文已准备好，等待当前助手领取')
             self._save(job)
 

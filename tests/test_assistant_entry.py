@@ -127,5 +127,59 @@ class AssistantEntryTests(unittest.TestCase):
             finally:release.set();worker.join(3)
         self.assertEqual(self.wait_prepared(results[0]['job'])['state'],'awaiting_agent')
 
+    def test_prepared_source_write_failure_finishes_job_and_allows_next_book(self):
+        import serve_ebook
+        source=self.root/'book.txt';source.write_text('受控短篇正文。',encoding='utf-8')
+        original=serve_ebook.atomic_json
+        def disk_failure(path,value):
+            if Path(path).name=='parsed-source.json':
+                raise OSError('private book text at C:/private/book.txt')
+            return original(path,value)
+        with patch('serve_ebook.atomic_json',side_effect=disk_failure):
+            job=self.client.call('create-file',{'path':str(source),'session':'chat'})['job']
+            # Drain the single preparation executor without relying on parser timing.
+            self.store.executor.submit(lambda:None).result(timeout=3)
+        current=self.store.get(job['id'])
+        self.assertEqual(current['state'],'failed')
+        self.assertEqual(current['error'],serve_ebook.public_error(OSError()))
+        self.assertNotIn('private',json.dumps(current))
+        saved=json.loads((self.store.jobs_dir/job['id']/'state.json').read_text('utf-8'))
+        self.assertEqual(saved['state'],'failed')
+        next_job=self.client.call('create-title',{'title':'下一本','session':'chat'})['job']
+        self.assertEqual(next_job['state'],'awaiting_agent')
+
+    def test_late_preparation_cannot_revive_cancelled_or_retried_attempt(self):
+        import ebook_document
+        import serve_ebook
+        source=self.root/'book.txt';source.write_text('受控短篇正文。',encoding='utf-8')
+        original_parse=ebook_document.parse_document;original_write=serve_ebook.atomic_json
+        for retry in (False,True):
+            entered,release=threading.Event(),threading.Event();writes=[];calls=[]
+            def slow(path):
+                calls.append(path)
+                if len(calls)==1:entered.set();release.wait(3)
+                return original_parse(path)
+            def record(path,value):
+                if Path(path).name=='parsed-source.json':writes.append(path)
+                return original_write(path,value)
+            with self.subTest(retry=retry),patch('ebook_document.parse_document',side_effect=slow),patch('serve_ebook.atomic_json',side_effect=record):
+                job=self.client.call('create-file',{'path':str(source),'session':'chat'})['job']
+                try:
+                    self.assertTrue(entered.wait(1))
+                    old_event=self.store.events[job['id']]
+                    self.client.call('cancel',{'session':'chat'},job['id'])
+                    if retry:
+                        self.client.call('retry',{'session':'chat'},job['id'])
+                        self.assertIsNot(self.store.events[job['id']],old_event)
+                        # A superseded identity must be rejected even without its
+                        # cancellation bit; the fresh attempt owns the result.
+                        old_event.clear()
+                finally:release.set()
+                self.store.executor.submit(lambda:None).result(timeout=3)
+                current=self.store.get(job['id'])
+                self.assertEqual(current['state'],'awaiting_agent' if retry else 'cancelled')
+                self.assertEqual(len(writes),1 if retry else 0)
+                if retry:self.client.call('cancel',{'session':'chat'},job['id'])
+
 
 if __name__=='__main__':unittest.main()

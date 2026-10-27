@@ -102,5 +102,117 @@ class BundleTests(unittest.TestCase):
         analysis,document=fixture('title');document['elements'][0].pop('source_type');analysis['memorable_passages']=[]
         with self.assertRaises(ValueError):api.make_bundle(analysis,document)
 
+    def test_public_nested_objects_project_known_fields_only(self):
+        api=self.api();analysis,document=fixture('title')
+        source=analysis['themes'][0]['sources'][0]
+        verification={'status':'needs_review','reason':'待核查','V1':True,'V2':False,'V3':False,
+                      'source_sufficiency':{'reason':'原文有依据'},
+                      'walkthrough':{'input':'输入','steps':['检查'],'output':'结果','completion_standard':'完成检查'},
+                      'task_utility':'检查输入','semantic_evaluation':'non_isolated_current_agent','blind_baseline':False}
+        analysis.update(book_context=[{'kind':'logic','title':'论证','explanation':'先检查再行动','sources':[source]}],
+            methods=[{'id':'m1','title':'检查','interpretation':'检查输入','trigger':'行动前','steps':['检查'],
+                      'example':'核对输入','boundaries':['缺失时停止'],'candidate_ids':['c1'],
+                      'verification':verification,'sources':[source]}],
+            cases=[{'title':'检查案例','explanation':'检查后行动','case_origin':'ai_exercise','sources':[source]}],
+            counterexamples=[{'title':'跳过检查','explanation':'会遗漏输入','sources':[source]}],
+            glossary=[{'term':'检查','definition':'核对输入','sources':[source]}],
+            insights=[{'title':'检查习惯','explanation':'先检查','sources':[source]}],
+            references=[{'id':'r1','title':'参考','summary':'有来源','original_candidate_ids':['c1'],
+                         'verification':{'status':'reference','reason':'参考材料'},'sources':[source]}],
+            review={'status':'ready','reason':'','paragraphs':[{'text':'我留意到“先检查输入。”这句话。','sources':[source],'quotes':[source]}]},
+            content_map=[{'id':'t1','title':'检查','importance':'core','status':'read','gap':'','sources':[source]}],
+            topic_coverage=[{'topic_id':'t1','status':'explained','item_refs':['themes:0'],'reason':'已解释'}],
+            reading_status={'level':'public_reading','label':'公开资料解读','reason':'限本次资料'},
+            structure_index=[{'title':'第一节','element_ids':['e1']}],
+            decision_rules=[{'method_id':'m1','title':'检查','trigger':'行动前','steps':['检查'],
+                             'interpretation':'检查输入','boundaries':['缺失时停止'],'sources':[source],'verification':verification}],
+            bibliography=[{'id':'s1','url':'https://example.org/book','title':'试读','type':'preview',
+                           'accessed_at':'2026-10-01','content_hash':'b'*64,'content_kind':'excerpt'}])
+        analysis['book'].update(id='b1',edition='第一版',identity_url='https://example.org/book')
+        document['book']=copy.deepcopy(analysis['book'])
+        analysis['coverage'].update(key_tasks=[{'id':'t1','title':'检查','sources':[source]}],
+            task_audit=[{'task_id':'t1','status':'needs_review','candidate_ids':['c1'],'reason':'待核查'}],
+            candidate_dispositions=[{'id':'c1','status':'needs_review','reason':'待核查','task_ids':['t1'],
+                'sources':[source],'verification':verification,'delivered_methods':['m1'],
+                'delivered_reference':None,'final_status':'needs_review'}],
+            excluded_boilerplate=[{'kind':'epub-navigation','wrapper_id':'nav'}])
+        expected=api.make_bundle(analysis,document)
+        seen=set()
+        def inject(value):
+            if id(value) in seen:return
+            seen.add(id(value))
+            if isinstance(value,dict):
+                for item in list(value.values()):inject(item)
+                value.update({key:{'secret':'NEVER-PUBLIC'} for key in
+                    ('source_text','agent_token','document','prompt','private_audit','unknown_object')})
+            elif isinstance(value,list):
+                for item in value:inject(item)
+        inject(analysis)
+        document['book']=copy.deepcopy(analysis['book'])
+        bundle=api.make_bundle(analysis,document)
+        self.assertFalse('NEVER-PUBLIC' in json.dumps(bundle),'Unknown nested keys leaked into the public bundle')
+        self.assertEqual(bundle,expected,'Projection must retain all supported public fields and source boundaries')
+        self.assertIn('NEVER-PUBLIC',json.dumps(analysis),'Caller input remains private and unmodified')
+        for target in (bundle['analysis']['themes'][0],bundle['analysis']['methods'][0]['verification']['walkthrough'],
+                       bundle['checks'],bundle['checks']['evidence'][0]):
+            with self.subTest(target=list(target)):
+                changed=copy.deepcopy(bundle)
+                # Locate the matching object in the copy without changing valid evidence.
+                def taint(value):
+                    if isinstance(value,dict):
+                        if value==target:value['unknown_object']={'secret':'NEVER-PUBLIC'};return True
+                        return any(taint(item) for item in value.values())
+                    if isinstance(value,list):return any(taint(item) for item in value)
+                    return False
+                self.assertTrue(taint(changed))
+                changed['bundle_hash']=api.bundle_hash(changed)
+                with self.assertRaises(ValueError):api.validate_bundle(changed)
 
+    def test_resealed_unknown_public_objects_are_rejected(self):
+        api=self.api();bundle=api.make_bundle(*fixture())
+        for section in ('theme','source','book','coverage','checks','evidence'):
+            changed=copy.deepcopy(bundle)
+            targets={'theme':changed['analysis']['themes'][0],
+                     'source':changed['analysis']['themes'][0]['sources'][0],
+                     'book':changed['analysis']['book'],'coverage':changed['analysis']['coverage'],
+                     'checks':changed['checks'],'evidence':changed['checks']['evidence'][0]}
+            targets[section]['unknown_object']={'source_text':'NEVER-PUBLIC'}
+            if section=='book':changed['checks']['book']=copy.deepcopy(changed['analysis']['book'])
+            changed['bundle_hash']=api.bundle_hash(changed)
+            with self.subTest(section=section),self.assertRaises(ValueError):api.validate_bundle(changed)
+
+    def test_public_scalar_fields_cannot_smuggle_nested_objects(self):
+        api=self.api();analysis,document=fixture()
+        analysis['coverage']['scope_note']={'source_text':'private'}
+        with self.assertRaises(ValueError):api.make_bundle(analysis,document)
+        analysis,document=fixture()
+        analysis['themes'][0]['sources'][0]['url']={'source_text':'private'}
+        with self.assertRaises(ValueError):api.make_bundle(analysis,document)
+
+    def test_resealed_ready_review_reapplies_paragraph_and_quote_contract(self):
+        api=self.api();analysis,document=fixture()
+        source=analysis['themes'][0]['sources'][0]
+        analysis['review']={'status':'ready','reason':'','paragraphs':[
+            {'text':'我留意到“先检查输入。”这句话。','sources':[source],'quotes':[source]}]}
+        bundle=api.make_bundle(analysis,document)
+        for change in ('unbound','unrecorded_quote','wrong_punctuation','absent_quote','missing_quotes','empty_ready'):
+            changed=copy.deepcopy(bundle);review=changed['analysis']['review'];paragraph=review['paragraphs'][0]
+            if change=='unbound':paragraph.update(text='没有依据的书评',sources=[],quotes=[])
+            if change=='unrecorded_quote':paragraph['quotes']=[]
+            if change=='wrong_punctuation':paragraph['text']='我留意到“先检查输入！”这句话。'
+            if change=='absent_quote':paragraph['text']='我留意到检查顺序。'
+            if change=='missing_quotes':paragraph.pop('quotes')
+            if change=='empty_ready':review['paragraphs']=[]
+            changed['bundle_hash']=api.bundle_hash(changed)
+            with self.subTest(change=change),self.assertRaises(ValueError):api.validate_bundle(changed)
+
+    def test_review_remains_optional_or_explicitly_unavailable(self):
+        api=self.api()
+        for mode in ('upload','title'):
+            for unavailable in (False,True):
+                analysis,document=fixture(mode)
+                if unavailable:analysis['review']={'status':'unavailable','reason':'材料不足，暂未生成书评','paragraphs':[]}
+                with self.subTest(mode=mode,unavailable=unavailable):
+                    bundle=api.make_bundle(analysis,document)
+                    self.assertEqual(api.validate_bundle(bundle),bundle)
 if __name__ == '__main__': unittest.main()

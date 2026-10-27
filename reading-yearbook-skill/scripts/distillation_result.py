@@ -12,17 +12,59 @@ READING_FIELDS_CONTRACT = ('Optional reading_lenses:[{id,kind:values|tone|tensio
     'quotation in its cited element AND quote; title mode only source_type=preview may supply original passages, '
     'never secondary paraphrases or source_notes. Empty optional lists are valid; literature needs no invented methods.')
 
-PUBLIC_FIELDS = {'schema_version','book','overview','book_context','themes','methods','cases','counterexamples',
-    'glossary','limitations','insights','topic_coverage','source_hash','input_mode','quality_status','coverage',
-    'reading_lenses','memorable_passages','content_map','reading_status','review','references','pipeline_version',
-    'evaluation_limit','structure_index','decision_rules','source_notice','bibliography'}
-PRIVATE_FIELDS = {'execution_identity','token','api_key','credentials','password','prompt','audit','stages',
-    'actual_task_trials','source_notes','document','elements'}
+# Every public object has an explicit shape, including objects below optional
+# reader fields. Scalar leaves cannot carry arbitrary nested pipeline payloads.
+BOOK = {'id':str,'title':str,'author':str,'edition':str,'identity_url':str}
+SOURCE = {'element_id':str,'quote':str,'location':str,'url':str,'source_type':str,'source_id':str}
+VERIFICATION = {'status':str,'reason':str,'V1':bool,'V2':bool,'V3':bool,
+    'source_sufficiency':{'reason':str},
+    'walkthrough':{'input':str,'steps':[str],'output':str,'completion_standard':str},
+    'task_utility':str,'pressure_passed':bool,'source_check':str,'semantic_evaluation':str,'blind_baseline':bool}
+READER_ENTRY = {'id':str,'title':str,'explanation':str,'sources':[SOURCE],'source_verified':bool}
+METHOD = {'id':str,'title':str,'interpretation':str,'trigger':str,'steps':[str],'example':str,
+    'boundaries':[str],'candidate_ids':[str],'sources':[SOURCE],'source_verified':bool,'verification':VERIFICATION}
+CANDIDATE = {'id':str,'title':str,'type':str,'summary':str,'status':str,'reason':str,'task_ids':[str],
+    'sources':[SOURCE],'verification':VERIFICATION,'canonical_id':str,'coverage_reason':str,
+    'original_candidate_ids':[str],'delivered_methods':[str],'delivered_reference':(str,type(None)),'final_status':str}
+PUBLIC_SCHEMA = {'schema_version':int,'book':BOOK,'overview':str,
+    'book_context':[{**READER_ENTRY,'kind':str}], 'themes':[READER_ENTRY],'methods':[METHOD],
+    'cases':[{**READER_ENTRY,'case_origin':str}],'counterexamples':[READER_ENTRY],
+    'glossary':[{'term':str,'definition':str,'sources':[SOURCE],'source_verified':bool}],
+    'limitations':[str],'insights':[READER_ENTRY],
+    'topic_coverage':[{'topic_id':str,'status':str,'item_refs':[str],'reason':str}],
+    'source_hash':str,'input_mode':str,'quality_status':str,
+    'coverage':{'complete':bool,'full_text':bool,'scope_note':str,'chunks_total':int,'chunks_processed':int,
+        'warnings':[str],'sources_read':int,'genre':str,
+        'key_tasks':[{'id':str,'title':str,'sources':[SOURCE]}],
+        'task_audit':[{'task_id':str,'status':str,'candidate_ids':[str],'reason':str}],
+        'candidate_dispositions':[CANDIDATE],
+        'excluded_boilerplate':[{'kind':str,'wrapper_id':str}]},
+    'reading_lenses':[{'id':str,'kind':str,'title':str,'text':str,'sources':[SOURCE],'source_verified':bool}],
+    'memorable_passages':[{'text':str,'why_it_matters':str,'sources':[SOURCE],'source_verified':bool}],
+    'content_map':[{'id':str,'title':str,'importance':str,'status':str,'sources':[SOURCE],'gap':str}],
+    'reading_status':{'level':str,'label':str,'reason':str},
+    'review':{'status':str,'reason':str,'paragraphs':[{'text':str,'sources':[SOURCE],'quotes':[SOURCE]}]},
+    'references':[{'id':str,'title':str,'summary':str,'sources':[SOURCE],
+        'original_candidate_ids':[str],'source_verified':bool,'verification':VERIFICATION}],
+    'pipeline_version':str,'evaluation_limit':str,
+    'structure_index':[{'title':str,'element_ids':[str]}],
+    'decision_rules':[{**METHOD,'method_id':str}], 'source_notice':str,
+    'bibliography':[{'id':str,'url':str,'title':str,'type':str,'accessed_at':str,
+        'content_hash':str,'content_kind':str}]}
+CHECKS_SCHEMA = {'book':BOOK,'source_hash':str,'input_mode':str,'source_validation':str,
+    'semantic_validation':str,'evidence':[{'element_id':str,'quote_hash':str,'location':str,'source_type':str}]}
+PUBLIC_FIELDS = set(PUBLIC_SCHEMA)
 
 
-def _public(value):
-    if isinstance(value,dict): return {k:_public(v) for k,v in value.items() if k not in PRIVATE_FIELDS}
-    if isinstance(value,list): return [_public(v) for v in value]
+def _public(value, schema=PUBLIC_SCHEMA):
+    if isinstance(schema,dict):
+        if not isinstance(value,dict): raise ValueError('Invalid public object')
+        return {key:_public(item,schema[key]) for key,item in value.items() if key in schema}
+    if isinstance(schema,list):
+        if not isinstance(value,list): raise ValueError('Invalid public list')
+        return [_public(item,schema[0]) for item in value]
+    allowed=schema if isinstance(schema,tuple) else (schema,)
+    if type(value) not in allowed: raise ValueError('Invalid public scalar')
     return value
 
 
@@ -85,9 +127,9 @@ def _base(analysis):
 
 
 def make_bundle(analysis, document, digest=''):
-    analysis=copy.deepcopy(analysis)
+    analysis=_public(analysis)
     _base(analysis)
-    if not isinstance(document,dict) or analysis['source_hash']!=document.get('source_hash') or analysis['book']!=document.get('book'): raise ValueError('Source/book binding mismatch')
+    if not isinstance(document,dict) or analysis['source_hash']!=document.get('source_hash') or analysis['book']!=_public(document.get('book'),BOOK): raise ValueError('Source/book binding mismatch')
     if document.get('input_mode',analysis['input_mode'])!=analysis['input_mode']: raise ValueError('Source mode mismatch')
     if analysis['input_mode']=='upload' and ('bibliography' in document or any(e.get('source_type') in ('author','publisher','preview','interview','secondary') for e in document.get('elements',[]))): raise ValueError('Public sources cannot be relabelled uploaded text')
     elements=document.get('elements')
@@ -125,7 +167,7 @@ def validate_bundle(bundle):
         if bundle_hash(bundle)!=bundle['bundle_hash']: raise ValueError('Result bundle integrity mismatch')
         analysis=_base(bundle['analysis']); checks=bundle['checks']
         if set(analysis)-PUBLIC_FIELDS or _public(analysis)!=analysis: raise ValueError('Private fields in public result')
-        if not isinstance(checks,dict) or checks.get('source_validation')!='exact_quotes' or checks.get('semantic_validation')!='not_independent': raise ValueError('Missing source checks')
+        if not isinstance(checks,dict) or _public(checks,CHECKS_SCHEMA)!=checks or checks.get('source_validation')!='exact_quotes' or checks.get('semantic_validation')!='not_independent': raise ValueError('Missing source checks')
         for key in ('source_hash','input_mode'):
             if bundle[key]!=analysis[key] or checks.get(key)!=analysis[key]: raise ValueError('Result bundle binding mismatch')
         if checks.get('book')!=analysis['book']: raise ValueError('Book identity binding mismatch')
@@ -144,6 +186,8 @@ def validate_bundle(bundle):
             for row in analysis.get(key,[]): _sources(copy.deepcopy(row.get('sources')),public_elements)
         validate_context(copy.deepcopy(analysis),public_elements)
         validate_reading_fields(copy.deepcopy(analysis),public_elements,analysis['input_mode'])
+        if 'review' in analysis:
+            validate_review(copy.deepcopy(analysis['review']),public_elements,{e['element_id'] for e in public_elements})
         return bundle
     except (KeyError,TypeError,AttributeError,OverflowError) as error:
         raise ValueError('Invalid result bundle structure') from error
