@@ -21,7 +21,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual([item['path'] for item in manifest(root)['files']], ['SKILL.md'])
 
     def test_ebook_service_and_pinned_rules_are_required_install_resources(self):
-        for missing in ('scripts/serve_ebook.py', 'scripts/ebook_verification.py', 'scripts/ebook_agent.py', 'scripts/ebook_agent_bridge.py', 'third_party/cangjie/UPSTREAM.json'):
+        for missing in ('scripts/serve_ebook.py', 'scripts/ebook_verification.py', 'scripts/ebook_agent.py', 'scripts/ebook_agent_bridge.py', 'scripts/distillation_result.py', 'scripts/report_reader.py', 'assets/ebook-reader-section.html', 'third_party/cangjie/UPSTREAM.json'):
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 for name in set(REQUIRED) | {missing}:

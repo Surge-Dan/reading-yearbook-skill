@@ -30,7 +30,7 @@
 
 ## 数据接口
 
-新增 `scripts/distillation_result.py`：`make_bundle(analysis, document, digest='')` 在真实证据上验证后生成结果包；`validate_bundle(bundle)` 验证公开包结构/绑定；`load_bundle(path)` 读取验证。包是 `schema_version:1, kind:'reading-distillation', analysis, digest, source_hash, input_mode, checks, bundle_hash`。无全文、令牌、账户凭据或私有过程输出。源码哈希、原文/公开资料模式与书籍身份不能混用；文件内容变动使包哈希校验失败。哈希是完整性校验，不是独立语义质量证明。
+新增 `scripts/distillation_result.py`：`make_bundle(analysis, document, digest='')` 在真实证据上验证后生成结果包；`validate_bundle(bundle)` 验证公开包结构/绑定；`load_bundle(path)` 读取验证。包是 `schema_version:1, kind:'reading-distillation', source_mode:'real'|'sample', analysis, digest, source_hash, input_mode, checks, bundle_hash`。无全文、令牌、账户凭据或私有过程输出。源码哈希、原文/公开资料模式与书籍身份不能混用；文件内容变动使包哈希校验失败。哈希是完整性校验，不是独立语义质量证明。source_mode 仅区分真实/测试材料，原文/公开资料范围仍看 input_mode 与 coverage；真实报告拒绝 sample 包。
 
 `analysis` 兼容现有字段，可选新增 `reading_lenses:[{id,kind,title,text,sources}]` 和 `memorable_passages:[{text,why_it_matters,sources}]`。kind 是 values/tone/tension/connections；所有视角需真实证据，金句 text 必须逐字匹配指定来源，书名模式仅原书公开试读可作原文。
 

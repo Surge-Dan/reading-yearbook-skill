@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.25",
+  "version": "2026.10.27",
   "files": [
     {
       "path": "agents/openai.yaml",
@@ -15,15 +15,21 @@
     },
     {
       "path": "assets/ebook-app.css",
-      "sha256": "f0a51559aa723472bfb8fa7bd3f34f33c4b407c797c388c9f8a706cd7f0bc62f",
+      "sha256": "87d13bcf4c0ca9adcba7fdb15f84d627158b0e4bcd83671948789666d7b5e4dd",
       "hash_kind": "text-lf",
-      "bytes": 6687
+      "bytes": 6899
     },
     {
       "path": "assets/ebook-app.js",
-      "sha256": "0a87d8fd6a51b4d7bbd5d5689d6529c6b798da89c148fc7b86558d52e59318ce",
+      "sha256": "fa62ef20e384661e88c6c76df55edc871fa27fdfe6541a831ec870a1f696164f",
       "hash_kind": "text-lf",
-      "bytes": 27454
+      "bytes": 31393
+    },
+    {
+      "path": "assets/ebook-reader-section.html",
+      "sha256": "6ce312413b86e7c300a841acff2045158f718dd5b2ac55230bfd29c6a4bcdb22",
+      "hash_kind": "text-lf",
+      "bytes": 2456
     },
     {
       "path": "assets/ebook-section.html",
@@ -75,21 +81,21 @@
     },
     {
       "path": "assets/reading-art.css",
-      "sha256": "d7bff8e754f09839e745b8219d53db9673d0842cb68e075966b90afa162cdd32",
+      "sha256": "967229d63d847d755efb55b1abfe12217a79252ea3d7c1953f4b783af3c1db45",
       "hash_kind": "text-lf",
-      "bytes": 23714
+      "bytes": 23024
     },
     {
       "path": "assets/reading-share-art.js",
-      "sha256": "f7e42c7400ffb4fae009aa3661278a14dd59436ebe9887d775b00d92baa1363c",
+      "sha256": "b82fa551c762ce9074e9b7f5e7fa8e318fbea1ebf970edf3084fa7a8e2044f74",
       "hash_kind": "text-lf",
-      "bytes": 32307
+      "bytes": 32105
     },
     {
       "path": "assets/reading-template.html",
-      "sha256": "b5a412be6e6eb011777619643e508961462218e1cfee45dc78750abf7b48afb5",
+      "sha256": "e9fcc0e5124dc8690e4dfa0989abe18f65a2d37ab373d526e3fad212834dea92",
       "hash_kind": "text-lf",
-      "bytes": 10838
+      "bytes": 10835
     },
     {
       "path": "assets/sample-data.json",
@@ -183,9 +189,9 @@
     },
     {
       "path": "examples/build_html_demo.py",
-      "sha256": "78566f6395b16057209c924628c46d47ce0f1842a3901d38afbab1c8f53efaca",
+      "sha256": "346a21f9462f0d668328420ee46966646d1c56408434f2b495f777fa623db0f4",
       "hash_kind": "text-lf",
-      "bytes": 4689
+      "bytes": 6782
     },
     {
       "path": "examples/build_share_demo.py",
@@ -315,9 +321,9 @@
     },
     {
       "path": "examples/reading-html-demo/demo-data.json",
-      "sha256": "f7de30e2cf4ca4f2cac5402483aabe7eccb7e89c3f2605b07494b9f78ffad8d7",
+      "sha256": "9251fefbbe006a7bb47c93b2a88434ce8f1738df8b52998ed08f5734b9e9419d",
       "hash_kind": "text-lf",
-      "bytes": 4335
+      "bytes": 7693
     },
     {
       "path": "examples/reading-html-demo/images/01-cover.png",
@@ -381,9 +387,9 @@
     },
     {
       "path": "examples/reading-html-demo/index.html",
-      "sha256": "5db6dcced90b2ee8d92b1c298ec8cc1f7833991c7682991ae82a6fc56b9a09c7",
+      "sha256": "bad49b882eb6ad8059c45b19e9752ce0d82036cca001b02bb35c31e43ae87f82",
       "hash_kind": "text-lf",
-      "bytes": 3645249
+      "bytes": 3694769
     },
     {
       "path": "examples/reading-html-demo/preview-manifest.json",
@@ -393,9 +399,9 @@
     },
     {
       "path": "examples/reading-html-demo/README.md",
-      "sha256": "27b9de91e2096995f392b7f3b2ec925b815cd88f078bc7c1efed536afee7d0f4",
+      "sha256": "3a1056b6bb63bd8d630384c71f3f32e7e2bdef82ade64238ef73f86a7c484279",
       "hash_kind": "text-lf",
-      "bytes": 2246
+      "bytes": 2853
     },
     {
       "path": "examples/reading-html-demo/share-overview.png",
@@ -411,9 +417,9 @@
     },
     {
       "path": "examples/README.md",
-      "sha256": "af506d1e258b7ccde3319ec5005b873c5202725efc42a8a1bbc694fc1e50466b",
+      "sha256": "5c9e48e323976b41e2ef5ca41af7e34e5b74f0ccd0c35f2cd4ff5b4ad98955ab",
       "hash_kind": "text-lf",
-      "bytes": 4078
+      "bytes": 4343
     },
     {
       "path": "examples/share-demo/assets/atget-organ-player.jpg",
@@ -561,9 +567,9 @@
     },
     {
       "path": "references/book-reading-writing.md",
-      "sha256": "b6706859e1b2de5e85715f743ea50d755922c67667c09d5319b2dde674a526b1",
+      "sha256": "78e9621396272b7233494413c12fc0bb691aa5663f8f86cbbcda7388a7e78d4c",
       "hash_kind": "text-lf",
-      "bytes": 4102
+      "bytes": 5164
     },
     {
       "path": "references/book-review-writing.md",
@@ -591,9 +597,9 @@
     },
     {
       "path": "references/distillation-method.md",
-      "sha256": "f030b22d942da738023d1a2ce56d575a38bbb57b48f54106c618e5ff2338d507",
+      "sha256": "6e58cea4cc61a6d264d5daee49a9f4bec57d1455b839629ba569794082989b9d",
       "hash_kind": "text-lf",
-      "bytes": 13554
+      "bytes": 17063
     },
     {
       "path": "references/evidence-rules.md",
@@ -603,9 +609,9 @@
     },
     {
       "path": "references/html-yearbook.md",
-      "sha256": "8dc20b2ce6b7aec885fc8486d169e8b93e2389b6f1514304dfd71c1f037fbb8d",
+      "sha256": "bbf1a6165bc97ef383f87a04d074d8f35a09f9f383e4d5bdf97f1dd2111edbed",
       "hash_kind": "text-lf",
-      "bytes": 18534
+      "bytes": 19823
     },
     {
       "path": "references/output-contract.md",
@@ -681,9 +687,9 @@
     },
     {
       "path": "scripts/build_reading_html.py",
-      "sha256": "b4c1022c919e184803acaddb313e3e49dc4dfa6f7017284e00d626aee32cb9fb",
+      "sha256": "786364e69ae635d0c13a195658267504d100096381ae81ece2d4b2d89c84e697",
       "hash_kind": "text-lf",
-      "bytes": 27850
+      "bytes": 28902
     },
     {
       "path": "scripts/collage_materials.py",
@@ -722,10 +728,16 @@
       "bytes": 1286
     },
     {
-      "path": "scripts/ebook_agent.py",
-      "sha256": "e6912c9ab296fd3d632ab00276aee14918db71a5abff5800d755bb8b1d160d51",
+      "path": "scripts/distillation_result.py",
+      "sha256": "20b26355b5cfea1c7324ee4f422ca97931f9b646396996e2e96f79751f339f8d",
       "hash_kind": "text-lf",
-      "bytes": 5531
+      "bytes": 14505
+    },
+    {
+      "path": "scripts/ebook_agent.py",
+      "sha256": "bc0c7ddf7f145ae4bfbd4a312f4f62810133965d71e10e051bf9296c89374526",
+      "hash_kind": "text-lf",
+      "bytes": 7458
     },
     {
       "path": "scripts/ebook_agent_bridge.py",
@@ -741,9 +753,9 @@
     },
     {
       "path": "scripts/ebook_pipeline.py",
-      "sha256": "2fe4dca27e3e0c1ac0c14a3399c9055f6dd590c778e63ad4643c69012d4e9ed3",
+      "sha256": "571f5aec538bb62132ee62a2bbfcfb5c479571439af9e5636d0e7ac817ef7480",
       "hash_kind": "text-lf",
-      "bytes": 56668
+      "bytes": 59223
     },
     {
       "path": "scripts/ebook_reading.py",
@@ -759,9 +771,9 @@
     },
     {
       "path": "scripts/ebook_title.py",
-      "sha256": "f1f3e28d4932fafde3c35d3cce1c6b09aa2cc7dc495d467473105368ebf28976",
+      "sha256": "9bd9275d0646ff48c347f74f52a069869f594bd46eb846c7738a3381603e3fa6",
       "hash_kind": "text-lf",
-      "bytes": 19046
+      "bytes": 19554
     },
     {
       "path": "scripts/ebook_verification.py",
@@ -789,9 +801,9 @@
     },
     {
       "path": "scripts/generate_reading_html.py",
-      "sha256": "033459f9a5598844b82cb9c9420e25f681999d05ab3884038bad88ea154f6c34",
+      "sha256": "672f085826281a99156aee00ccc3b21613e6f25a0b37f478887220ba08462bef",
       "hash_kind": "text-lf",
-      "bytes": 15278
+      "bytes": 15877
     },
     {
       "path": "scripts/html_contract.py",
@@ -818,6 +830,12 @@
       "bytes": 9573
     },
     {
+      "path": "scripts/report_reader.py",
+      "sha256": "42761cd6717e60ccd3c61a54fad4cf1bd90835f48d22966f8bc1bd43692641b8",
+      "hash_kind": "text-lf",
+      "bytes": 4846
+    },
+    {
       "path": "scripts/run_share.py",
       "sha256": "4f69360acda95b3889e4be19a9a340ae1c98d5d7edc247f0d132a7b0a85a7dca",
       "hash_kind": "text-lf",
@@ -837,9 +855,9 @@
     },
     {
       "path": "scripts/serve_ebook.py",
-      "sha256": "fb70745825049d6fcd55686d560b90ee30ffcf292b142de4596585eaded6a772",
+      "sha256": "469b8ce95db2f465cf7006f2cfb5928b0b3b0f4e84ea5d160ac97c9b52da1b20",
       "hash_kind": "text-lf",
-      "bytes": 30195
+      "bytes": 33495
     },
     {
       "path": "scripts/share_contract.py",
@@ -849,9 +867,9 @@
     },
     {
       "path": "scripts/skill_release.py",
-      "sha256": "62b855335c4263e121629ee3af1628540df39e73b4573b269386503641788133",
+      "sha256": "d82e0253a9cee5553813842844a36c5b1e6fbade871ca726f9558764d2e63988",
       "hash_kind": "text-lf",
-      "bytes": 5438
+      "bytes": 5533
     },
     {
       "path": "scripts/static_graphics.py",
@@ -873,9 +891,9 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "ebe5fe7afa44394aa18b4143a684dfb913a245e46a84059210af5874fa40d08a",
+      "sha256": "90cefcea99c9348ed5dc73d05741770dabe02ac786bfd652c7abd32a4dc66c58",
       "hash_kind": "text-lf",
-      "bytes": 12154
+      "bytes": 12782
     },
     {
       "path": "third_party/cangjie/extractors/case-extractor.md",

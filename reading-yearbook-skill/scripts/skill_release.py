@@ -18,8 +18,8 @@ REQUIRED = ['SKILL.md','scripts/generate_reading_html.py','scripts/collect_html_
     'assets/yearbook-art/rhythm.png','assets/fonts/NotoSerifSC.ttf.zlib','assets/fonts/NotoSansSC.ttf.zlib',
     'assets/fonts/OFL-Serif.txt','assets/fonts/OFL-Sans.txt',
     'scripts/serve_ebook.py','scripts/ebook_document.py','scripts/ebook_runner.py','scripts/ebook_pipeline.py',
-    'scripts/ebook_verification.py','scripts/ebook_agent.py','scripts/ebook_agent_bridge.py','scripts/ebook_title.py','scripts/ebook_reading.py',
-    'assets/ebook-app.js','assets/ebook-app.css','assets/ebook-section.html',
+    'scripts/ebook_verification.py','scripts/ebook_agent.py','scripts/ebook_agent_bridge.py','scripts/ebook_title.py','scripts/ebook_reading.py','scripts/distillation_result.py','scripts/report_reader.py',
+    'assets/ebook-app.js','assets/ebook-app.css','assets/ebook-section.html','assets/ebook-reader-section.html',
     'references/distillation-method.md','references/title-research.md','references/book-review-writing.md','references/book-reading-writing.md','requirements-ebook.txt',
     'third_party/cangjie/UPSTREAM.json','third_party/cangjie/LICENSE']
 
@@ -54,7 +54,7 @@ def manifest(root=ROOT):
             continue
         kind='text-lf' if p.suffix.lower() in {'.py','.js','.cjs','.svg','.xml','.html','.css','.md','.txt','.json','.yaml','.yml','.template'} else 'binary'
         files.append({'path':relative.as_posix(),'sha256':file_hash(p,kind),'hash_kind':kind,'bytes':p.stat().st_size})
-    return {'version':'2026.10.25','files':files}
+    return {'version':'2026.10.27','files':files}
 
 
 def file_hash(path,kind='binary'):
