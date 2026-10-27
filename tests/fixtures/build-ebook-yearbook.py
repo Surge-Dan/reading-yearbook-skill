@@ -13,7 +13,8 @@ raw['books'][2]['intro'] = '<script>window.PWNED=1</script>' + '原始简介与�
 build_html(adapt_data(raw), output)
 page = output.read_text('utf-8')
 assert 'href="#ebook"' in page, 'yearbook must link to ebook workbench'
-assert 'id="ebookFile"' in page, 'yearbook must embed workbench section'
+assert 'data-reader-mode="readonly"' in page, 'yearbook must embed readonly reader'
+assert 'id="ebookFile"' not in page, 'reader must not contain task controls'
 assert page.count('id="ebook-app-mounted"') == 1, 'mount script must appear once'
 assert 'window.ReadingShareArtwork' in page and 'function createDigest' in page
 assert '__EBOOK_' not in page

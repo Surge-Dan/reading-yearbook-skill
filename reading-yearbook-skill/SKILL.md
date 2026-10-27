@@ -1,6 +1,6 @@
 ---
 name: reading-yearbook-skill
-description: Create reading yearbooks and a local book distillation webpage with title-based public-source research or ebook upload, Cangjie-style insights, decision guides, copy and share-image exports. Use for 阅读年报、年度阅读档案、按书名蒸馏、电子书蒸馏、上传书本提炼精华、读书分享图 or 单书卡. Keep public-source interpretation, book quotes and personal notes distinct.
+description: Distill a book in the assistant from a local ebook or title-based public sources, then build a static reading yearbook with reusable results and copy/share exports. Use for 阅读年报、年度阅读档案、按书名蒸馏、电子书蒸馏、上传书本提炼精华、读书分享图 or 单书卡. Keep public-source interpretation, book quotes and personal notes distinct.
 ---
 
 # 年年阅
@@ -9,13 +9,13 @@ description: Create reading yearbooks and a local book distillation webpage with
 
 ## 路由
 
-- 按书名蒸馏／网页上传电子书／打开年年阅工作台／开始蒸馏：读[书籍蒸馏](references/distillation-method.md)，助手启动 `scripts/serve_ebook.py` 默认当前 Agent 模式并打开实际 URL。网页默认输入书名，也可上传正文；提交后回同一聊天发送一次“开始蒸馏”，助手连续处理阶段，网页显示结果、复制与分享图。书名任务的研究阶段另读[公开资料研究](references/title-research.md)，仅在 title-identify/title-research 有界联网；同名书先在网页选择，资料不足不补造。无需另装模型 CLI，用户不执行命令或填写 JSON；宿主须支持共享本地文件和 Python，书名模式还需宿主联网工具。可选 CLI 自动模式仅明确要求时用于上传。默认首页仍为已有年度报告，蒸馏在底部；独立使用不要求微信读书接口、年份或已有记录。静态 HTML 不能生成新结果。
-- 默认交付HTML阅读年鉴：用户安装Skill并接入有效微信读书接口后，助手完成采集、材料核查、视觉制作和导出验证，给出完整单文件网页；不让用户准备JSON或执行脚本。只读[HTML年鉴操作](references/html-yearbook.md)，运行`generate_reading_html.py`；已有材料先复用。年份未指定默认本年并说明，已有认可方向直接实现；用户提出新的视觉要求时才集中对齐。用户只要组图或单书卡时，仍复用已有年鉴或按指定材料构建，再通过同一分享画布导出；只交付其要求的产物，不自动扩展成全年书单。
+- 按书名蒸馏／提供电子书／打开年年阅／开始蒸馏：读[书籍蒸馏](references/distillation-method.md)，由助手直接接收书名或本地正文路径、创建任务、处理阶段并保存经共享校验器验证的 `distillation.json`。默认顺序是“助手蒸馏一本 → 再加一本或生成报告 → 网页阅读导出”，不用网页提交或复制开始指令。同名书在对话中确认身份，由助手提交选择；书名研究另读[公开资料研究](references/title-research.md)，仅在 title-identify/title-research 有界联网。宿主须能共享本地文件、运行 Python、访问本机私有服务；书名模式还需联网工具。纯聊天或不共享文件的宿主不承诺可用，模型身份未知就记 unknown。高成本先确认，不自动重试长书或切换模型。网页默认只读，首页为年度报告、底部为多本精华；独立蒸馏无需微信读书或年度记录。
+- 默认交付HTML阅读年鉴：至少一份有效真实蒸馏包才可新建报告，缺少时先引导完成一本，不采集、不创建空报告、不覆盖旧文件；书名资料模式可计入，但示例、上传成功或失败任务不能计入。读[HTML年鉴操作](references/html-yearbook.md)，助手向 `generate_reading_html.py` 或 `build_reading_html.py` 重复提供 `--distillation <distillation.json>`，完成采集、核查与导出验证。已有报告继续打开和导出；蒸馏书目不自动加入年度已读书单或改变统计。已有材料先复用，用户不填 JSON 或运行命令。只要图片时复用已有报告选页，不扩大范围。
 - 初次使用先核查安装目录必需资源及`requirements.txt`依赖，由助手补齐；`skill_release.py`提供发布清单校验与完整本地同步。不能因仓库里的示例网页能打开，就认为已安装Skill可独立运行。Noto字体资源与OFL许可保留；默认沿用已认可的本机字体优先策略，不自动替换或内嵌新字族。
 - 年度排行最多10项且过滤不足5分钟的条目，不作为完整书单接口。候选扩查先检查新请求预算；历史年结合真实完成日期与年内笔记证据，最近阅读时间不能证明此前没读过。覆盖不足交付部分年鉴并说明。`--refresh all`用于用户要求重新同步，视觉修订仍复用材料。
 - HTML图表按数据问题组织，保留lieflat-charts来源与许可。当前认可方向为月度细线、分类书脊、逐书时长横条与滚入／重播动画；用户指定参考图时连同字体、原创素材、纸面层次和实际导出一起还原。分类显示真实本数，时长不当进度；缺少逐日数据不制作每日热力图。
 - 年度回包有逐日、时段、分类时长或读／听分布时保留对应数据；默认页面仍采用原有模块，新增图表布局需单独确认，不为凑模块扩大采集。年度时段数组从6点开始，先转换到0—23点。电子书与有声专辑保留类型；有声内容无个人笔记接口时明确“未提供”，不能说已核查为零。
-- 没有划线或个人笔记是正常阅读状态，不阻止网页交付。仅有笔记时展示个人想法；都没有时展示书架、真实统计及温和提示，分享转为书封与阅读信息卡。请求失败必须标为未取得，不能伪装成零记录。缺时间数据不猜测时间线，零书目也有可用的空年鉴。生成书评与自动全文检索已从HTML流程移除。
+- 没有划线或个人笔记不阻止已有报告阅读，或满足蒸馏前置门的新报告交付。仅有笔记时展示个人想法；都没有时保留真实书架和统计。请求失败标为未取得，不能伪装成零记录；缺时间不猜时间线，年度零书目与独立蒸馏结果可以并存。HTML不自动全文检索，书评来自助手已完成的结果。
 - HTML优先补齐每本已确认书籍的真实封面、当前进度、完整划线和个人想法；组图中的精选摘录不能代替完整采集。封面缺失或损坏时自动使用统一的书名／作者占位，正常生成、重建和打开年鉴，不因此拦住统计、笔记或分享，也不自动改为草稿。保留有效真实封面，不删书、不伪造封面或用不同版本凑数；可在既有授权／预算内补采，不能为图片无限重试。缺图记入材料状态而非阻断报告；只有明确要求全部真实封面时才用`--require-all-covers`严格检查。核查后为零与采集失败分开显示；年度汇总和当前阅读进度分别保留口径。
 - HTML分享出口包含封面、阅读统计、阅读分布、阅读时间线及全部已载入书籍，不受精选标记限制。默认全部勾选，允许取消；书目、已选数量和总页数随当前用户数据计算，不能照搬示例数字。书籍多选支持搜索、独立预览和撤销；ZIP页数须与当前勾选一致。无划线或笔记仍可导出阅读信息卡，零书目保留四张概览的真实空态。
 - 分享画布按材料组织字体、图表、书封、侧栏与原创元素，不能固定为标题＋书封＋一句话。短摘录、长摘录、有笔记与无笔记采用不同信息结构，数据丰富度决定图表，不按书籍类别猜观点。使用同一绘制入口预览与导出，先做代表样张及375px阅读预览，字体或风格调整后再次检查真实图片。
@@ -40,15 +40,17 @@ description: Create reading yearbooks and a local book distillation webpage with
 在Skill目录执行，Windows使用`python -X utf8`。年份与输出路径按当前任务调整。
 
 ```powershell
-python -X utf8 scripts/generate_reading_html.py --year 2026 --output output/reading-2026/index.html
-python -X utf8 scripts/build_reading_html.py --input 已有材料.json --year 2026 --output output/reading-2026/index.html
+python -X utf8 scripts/generate_reading_html.py --year 2026 --distillation output/books/已完成任务/deep/distillation.json --output output/reading-2026/index.html
+python -X utf8 scripts/build_reading_html.py --input 已有材料.json --distillation output/books/已完成任务/deep/distillation.json --year 2026 --output output/reading-2026/index.html
 python -X utf8 scripts/skill_release.py
-python -X utf8 scripts/serve_ebook.py --output output/books --runner agent --port 0 --open
+python -X utf8 scripts/serve_ebook.py --output output/books --runner agent --port 0
 ```
 
 ## 内容与成本边界
 
 - 书名与上传正文均按[读懂与表达](references/book-reading-writing.md)整理人物关系、叙事／论证逻辑和作者主张，有材料才交付对应内容，不强凑栏目。概览讲清全书关系，方法解释到做法与应用；语气随书调整，保留具体判断与自然趣味。来源与处理记录集中页尾，不以页面清爽为由删掉证据或升级核验状态。书评不冒充用户的亲历。
+
+- `reading_lenses` 与 `memorable_passages` 有内容才展示，视角标题随书选择，例如“这本书在意什么”“书中透露出的底色”“读完想试的一件事”。金句必须逐字匹配原文与精确来源，书名模式只允许原书公开试读，不把二手转述或自写句子当作者引文。网页、复制、Markdown、独立HTML与PNG/ZIP使用同一本所选结果，页尾保留资料范围。旧结果无新字段时正常阅读，不生成占位内容。
 
 - 蒸馏结果采用阅读式结构，隐藏空栏目；研究先建立关键内容地图，再解释重要观点／方法并检查去向，不以条目数、字数或流程完成代替内容质量。上传复用正文理解结果，书名资料的目录只作研究线索。独立 reading-review 阶段按[书评规则](references/book-review-writing.md)写有材料支撑、自然且有文学质感的第一人称札记，不固定段落／字数／金句数量，不虚构亲历。详情见[蒸馏操作](references/distillation-method.md)。
 

@@ -1,0 +1,16 @@
+<section id="ebook" class="ebook-workbench chapter" data-reader-mode="readonly" aria-labelledby="ebookTitle">
+  <div class="ebook-heading"><h2 id="ebookTitle">书籍精华</h2><p>读过之后，还想带走的内容。</p></div>
+  <div id="ebookBookPicker" class="ebook-book-picker" hidden><label for="ebookBookSelect">选择一本书</label><select id="ebookBookSelect"></select></div>
+  <p id="ebookEmpty" class="ebook-small" hidden>这份旧报告尚未收录书籍精华，原有阅读记录仍可浏览和导出。</p>
+  <div id="ebookResultShell" hidden>
+    <div class="ebook-result-heading"><h3 id="ebookBookTitle"></h3><p id="ebookAuthor" class="ebook-small"></p><p id="ebookQuality" class="ebook-quality"></p></div>
+    <div class="ebook-actions"><button id="ebookCopyAll" type="button" class="button">复制全文</button><button id="ebookDownloadMd" type="button" class="text-button">下载 Markdown</button><button id="ebookDownloadHtml" type="button" class="text-button">下载独立 HTML</button><button id="ebookShareToggle" type="button" class="button" aria-expanded="false" aria-controls="ebookShare">做成分享图</button></div>
+    <p id="ebookActionStatus" class="ebook-small" role="status" aria-live="polite"></p>
+    <div id="ebookResult" class="ebook-result"></div>
+    <section id="ebookShare" class="ebook-share" aria-labelledby="ebookShareTitle" hidden>
+      <h3 id="ebookShareTitle">把精华带走</h3><p class="ebook-small">选择内容，长内容会自动分页；预览与 PNG 使用同一份画布。</p>
+      <div class="ebook-share-layout"><div><canvas id="ebookCanvas" width="900" height="1200" aria-label="书籍精华分享预览"></canvas><label for="ebookPage">预览页</label><select id="ebookPage"></select></div>
+      <div class="ebook-share-settings"><fieldset><legend>分享内容</legend><div id="ebookShareOptions"></div></fieldset><label for="ebookRatio">图片比例</label><select id="ebookRatio"><option value="3:4">3:4</option><option value="1:1">1:1</option><option value="4:5">4:5</option></select><p id="ebookShareCount" class="ebook-small" role="status"></p><div class="ebook-actions"><button id="ebookExportPng" type="button" class="button">导出当前 PNG</button><button id="ebookExportZip" type="button" class="button primary">导出所选 ZIP</button></div><p id="ebookShareStatus" role="status" aria-live="polite" class="ebook-small"></p></div></div>
+    </section>
+  </div>
+</section>

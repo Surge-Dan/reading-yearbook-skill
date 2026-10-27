@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from html_contract import category_name, reading_status, safe_link, atomic_text
 from embed_fonts import font_css  # Also registers the optional local dependency directory.
+from report_reader import validated_distillations, load_distillations, reader_section
 
 ROOT = Path(__file__).resolve().parents[1]
 TZ = timezone(timedelta(hours=8))
@@ -110,6 +111,8 @@ def adapt_data(raw, year=None):
     if 'shelf' in raw and 'stats' in raw:
         from yearbook_core import normalize_yearbook
         data=adapt_data(normalize_yearbook(raw, year), year)
+        if 'distillations' in raw:
+            data['distillations'] = validated_distillations(raw['distillations'], raw.get('source_mode'))
         merge_annual(data,{'year':year,'as_of':raw.get('as_of'),'shelf':raw['shelf'],'annual':raw['stats']})
         if not any(row.get('stat')=='读过' for row in raw['stats'].get('readStat',[])):
             data['summary']['read']=None;data['coverage']['annual_books']=None;data['coverage']['complete']=False
@@ -198,6 +201,8 @@ def adapt_data(raw, year=None):
         data['coverage']['complete'] = data['coverage']['complete'] and coverage.get('complete') is True
         data['coverage']['reason'] = str(coverage.get('reason') or '')
         data['features']=features_data(raw.get('features'),year,as_of)
+    if 'distillations' in raw:
+        data['distillations'] = validated_distillations(raw['distillations'], data['source_mode'])
     return data
 
 
@@ -369,6 +374,7 @@ def embed_image(path):
 
 def build_html(data, output, covers=None, art_assets=None, require_all_covers=False, allow_draft=False):
     """Whitelist data at adapter boundary; no raw payload embedded."""
+    validated_distillations(data.get('distillations'), data.get('source_mode'))
     from cover_contract import missing_covers, MissingCovers
     strict=require_all_covers
     invalid_files=set()
@@ -406,7 +412,7 @@ def build_html(data, output, covers=None, art_assets=None, require_all_covers=Fa
                     '__APP__': (ROOT / 'assets' / 'reading-app.js').read_text('utf-8'),
                     '__SHARE_APP__': (ROOT / 'assets' / 'reading-share-art.js').read_text('utf-8'),
                     '__EBOOK_APP__': (ROOT / 'assets' / 'ebook-app.js').read_text('utf-8'),
-                    '__EBOOK_SECTION__': (ROOT / 'assets' / 'ebook-section.html').read_text('utf-8'),
+                    '__EBOOK_SECTION__': reader_section(),
                     '__LICENSE__': html.escape((ROOT / 'assets' / 'lieflat-LICENSE.txt').read_text('utf-8')+'\n\nNoto Serif SC\n'+(ROOT/'assets/fonts/OFL-Serif.txt').read_text('utf-8')+'\n\nNoto Sans SC\n'+(ROOT/'assets/fonts/OFL-Sans.txt').read_text('utf-8'))}
     # One-pass replacement: user text may itself contain template delimiters.
     page = re.sub(r'__(?:DATA|STYLE|APP|SHARE_APP|EBOOK_APP|EBOOK_SECTION|LICENSE|ART)__', lambda m: replacements[m.group()], template)
@@ -427,6 +433,7 @@ def main():
     parser.add_argument('--input', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--year', type=int)
+    parser.add_argument('--distillation', type=Path, action='append', default=[], help='已完成 distillation.json，可重复提供多本')
     parser.add_argument('--annual-snapshot', type=Path)
     parser.add_argument('--covers', type=Path, help='JSON：book_id到本地书封路径，路径相对该JSON')
     parser.add_argument('--art-assets', type=Path, help='JSON：hero/reading/rhythm到本地透明图片路径，可按认可方向替换')
@@ -434,7 +441,16 @@ def main():
     parser.add_argument('--require-all-covers', action='store_true', help='正式年鉴缺任一本封面时停止，不覆盖上一版')
     parser.add_argument('--allow-draft', action='store_true', help='可选：缺封面时另存内部草稿；默认正常交付书名占位年鉴')
     args = parser.parse_args()
-    raw = json.loads(args.input.read_text('utf-8-sig'))
+    try:
+        raw = json.loads(args.input.read_text('utf-8-sig'))
+        if not isinstance(raw, dict):
+            raise ValueError('年鉴数据须为对象，请先提供已有材料并蒸馏至少一本。')
+        if args.distillation:
+            raw['distillations'] = load_distillations(args.distillation, raw.get('source_mode'))
+        validated_distillations(raw.get('distillations'), raw.get('source_mode'))
+    except (ValueError, OSError) as error:
+        print(json.dumps({'status':'blocked','message':str(error)},ensure_ascii=False))
+        return 2
     data = adapt_data(raw, args.year)
     if args.annual_snapshot:
         merge_annual(data, json.loads(args.annual_snapshot.read_text('utf-8-sig')))

@@ -92,6 +92,8 @@ class ServerTests(unittest.TestCase):
         done = self.wait_state(job_id, 'completed')
         self.assertEqual(done['digest'], '书本精华')
         self.assertEqual(self.calls, [(b'chapter', 'work', False)])
+        # Restart after the completed worker has persisted its final state.
+        self.store.executor.submit(lambda: None).result(timeout=3)
         restored = JobStore(Path(self.tmp.name), Runner(), pipeline=lambda *a, **k: {})
         try:
             self.assertEqual(restored.get(job_id)['analysis']['book']['title'], '测试书')

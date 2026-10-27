@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'reading-yearbook-skill/scripts'))
 from generate_reading_html import annual_data, collect_snapshot, deliver, main, cache_directory
+from test_report_reader import bundle
 
 
 def snapshot(count=1):
@@ -25,14 +26,14 @@ class DeliveryTests(unittest.TestCase):
 
     def test_zero_books_and_zero_notes_deliver_a_complete_yearbook(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result=deliver(snapshot(0),{'year':2026,'books':[]},{},Path(tmp)/'index.html')
+            result=deliver(snapshot(0),{'year':2026,'books':[]},{},Path(tmp)/'index.html',distillations=[bundle()])
             self.assertEqual(result['status'],'complete')
             self.assertTrue(Path(result['output']).exists())
 
     def test_missing_cover_delivers_report_with_placeholder(self):
         with tempfile.TemporaryDirectory() as tmp:
             target=Path(tmp)/'index.html';target.write_text('previous valid file','utf-8')
-            result=deliver(snapshot(),{'year':2026,'books':[]},{},target)
+            result=deliver(snapshot(),{'year':2026,'books':[]},{},target,distillations=[bundle()])
             self.assertEqual(result['status'],'partial')
             self.assertEqual(result['missing_covers'],1)
             self.assertTrue('reading-data' in target.read_text('utf-8'))
@@ -44,7 +45,7 @@ class DeliveryTests(unittest.TestCase):
             root=Path(tmp);cover=root/'cover.png'
             cover.write_bytes(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFElEQVR4nGP8/ukpAwMDEwMYQCkANbAC1LhAEWwAAAAASUVORK5CYII='))
             materials={'year':2026,'books':[{'book_id':'one','notes_scope':'all_time','collection':{'highlights':'complete','thoughts':'complete'},'highlights':[],'thoughts':[],'errors':[]}]}
-            result=deliver(snapshot(),materials,{'one':str(cover)},root/'index.html')
+            result=deliver(snapshot(),materials,{'one':str(cover)},root/'index.html',distillations=[bundle()])
             self.assertEqual(result['status'],'complete')
 
     def test_incomplete_year_coverage_is_never_claimed_complete(self):
@@ -63,7 +64,7 @@ class DeliveryTests(unittest.TestCase):
         failed={'year':2026,'books':[{'book_id':'one','notes_scope':'all_time','collection':{'highlights':'failed','thoughts':'complete'},'thoughts':[],'errors':[{'scope':'highlights'}]}]}
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);state=root/'state.json'
-            deliver(snapshot(),failed,{},root/'index.html',previous,state)
+            deliver(snapshot(),failed,{},root/'index.html',previous,state,distillations=[bundle()])
             saved=json.loads(state.read_text('utf-8'))
             self.assertEqual(saved['books'][0]['highlights'][0]['text'],'上次取得的真实句子')
             self.assertEqual(saved['books'][0]['note_coverage']['highlights'],'unverified')
@@ -88,7 +89,8 @@ class DeliveryTests(unittest.TestCase):
             root=Path(tmp);source=snapshot(101)
             source['annual']['readLongest']=[{'book':{'bookId':str(i),'title':'示例书'},'readTime':120} for i in range(101)]
             source_path=root/'snapshot.json';source_path.write_text(json.dumps(source),'utf-8')
-            with patch('sys.argv',['generate','--year','2026','--annual-snapshot',str(source_path),'--output',str(root/'index.html')]),patch.dict('os.environ',{'WEREAD_API_KEY':'secret'}),patch('generate_reading_html.collect') as request,patch('builtins.print'):
+            package=root/'distillation.json';package.write_text(json.dumps(bundle()),'utf-8')
+            with patch('sys.argv',['generate','--year','2026','--distillation',str(package),'--annual-snapshot',str(source_path),'--output',str(root/'index.html')]),patch.dict('os.environ',{'WEREAD_API_KEY':'secret'}),patch('generate_reading_html.collect') as request,patch('builtins.print'):
                 self.assertEqual(main(),3);request.assert_not_called()
 
 

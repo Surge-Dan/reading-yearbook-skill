@@ -1,5 +1,6 @@
 """Rebuild the public yearbook using fictional records and original mock covers."""
 import io
+import hashlib
 import json
 import sys
 import zlib
@@ -8,7 +9,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from build_reading_html import adapt_data, build_html, merge_materials
+from distillation_result import make_bundle
 from PIL import Image, ImageDraw, ImageFont
+
+
+def sample_distillation():
+    """Actual controlled evidence, explicitly unrelated to personal annual records."""
+    text='先检查输入。资料缺少日期时，先问清楚，再决定是否继续。完成检查不是把未知填满，而是知道下一步要核实什么。'
+    book={'title':'检查之前 · 功能测试短篇（非真实出版物）','author':'年年阅功能示例'}
+    source={'element_id':'sample-e1','quote':'先检查输入。','location':'受控短篇第一段'}
+    source_hash=hashlib.sha256(text.encode('utf-8')).hexdigest()
+    document={'book':book,'source_hash':source_hash,'source_mode':'sample',
+              'elements':[{'element_id':'sample-e1','text':text,'location':source['location']}]}
+    analysis={'schema_version':1,'book':book,'source_hash':source_hash,'input_mode':'upload',
+              'overview':'这篇功能测试短文谈检查与行动：先辨认手上的资料，缺少条件时再核实，而不是猜一个答案。',
+              'themes':[{'title':'给未知留出位置','explanation':'先明确输入是否足够，再决定下一步，不用猜测填补缺失资料。','sources':[source]}],
+              'methods':[],'cases':[],'counterexamples':[],'glossary':[],
+              'quality_status':'needs_review','coverage':{'complete':True,'scope_note':'仅覆盖自写的功能测试短篇，不代表真实书籍或个人阅读记录。'},
+              'limitations':['受控示例仅验证软件链路，未调用模型，不代表真实内容质量。'],
+              'reading_lenses':[{'id':'sample-values','kind':'values','title':'这篇短文在意什么','text':'行动之前，先对自己的信息有多少把握做一次检查。','sources':[source]}],
+              'memorable_passages':[{'text':source['quote'],'why_it_matters':'一句简短的提醒，把检查放在行动之前。','sources':[source]}]}
+    return make_bundle(analysis,document)
 
 
 def main():
@@ -53,7 +74,8 @@ def main():
                 draw.line((100, 620+j*22, 490-j*38, 600+j*22), fill=colors[i], width=3)
         draw.text((85, 793), '虚构书目 · 示意封面', font=font(23), fill=colors[i])
         target = covers_dir / (book_id + '.png')
-        image.save(target)
+        if not target.exists():
+            image.save(target)
         covers[book_id] = target
         date = f'2026-{i + 2:02d}-15'
         books.append({'book_id': book_id, 'title': title, 'author': authors[i],
@@ -64,12 +86,13 @@ def main():
                       'highlights': [{'text': excerpts[i], 'created_at': date, 'source_id': f'h{i}'}] if excerpts[i] else [],
                       'thoughts': [{'text': thoughts[i], 'created_at': date, 'source_id': f'n{i}'}] if thoughts[i] else []})
     raw = {'year': 2026, 'as_of': '2026-10-01', 'source_mode': 'sample',
+           'distillations':[sample_distillation()],
            'verification_status': 'sample_verified', 'books': books,
            'summary': {'book_count': len(books), 'finished_count': 4, 'read_days': 108,
                        'note_count': sum(len(b['highlights']) + len(b['thoughts']) for b in books),
                        'total_read_seconds': sum(seconds),
                        'monthly_read_seconds': [9000, 12600, 14400, 10800, 16200, 10800, 8640, 11340, 4980]}}
-    (out / 'demo-data.json').write_text(json.dumps(raw, ensure_ascii=False, indent=2)+'\n', 'utf-8')
+    (out / 'demo-data.json').write_bytes((json.dumps(raw,ensure_ascii=False,indent=2)+'\n').encode('utf-8'))
     data = adapt_data(raw)
     merge_materials(data, {'year': 2026, 'books': [{**b, 'notes_scope': 'all_time',
                      'collection': {'highlights': 'complete', 'thoughts': 'complete'}} for b in books]})

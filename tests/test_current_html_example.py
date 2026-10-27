@@ -9,14 +9,19 @@ DEMO = ROOT / 'examples/reading-html-demo'
 
 
 class CurrentExampleTests(unittest.TestCase):
+    maxDiff = 500
     def test_public_example_uses_current_css_and_inline_scripts(self):
         page = (DEMO / 'index.html').read_text('utf-8')
         expected_css = '\n'.join((ROOT / 'assets' / name).read_text('utf-8')
-                                 for name in ('reading-app.css', 'reading-art.css'))
+                                 for name in ('reading-app.css', 'reading-art.css','ebook-app.css'))
         self.assertEqual(re.search(r'<style>(.*?)</style>', page, re.S).group(1).strip(), expected_css.strip())
-        expected_scripts = '\n'.join((ROOT / 'assets' / name).read_text('utf-8')
-                                     for name in ('reading-share-art.js', 'reading-app.js'))
-        self.assertEqual(re.search(r'<script>(.*?)</script>', page, re.S).group(1).strip(), expected_scripts.strip())
+        for script_id,asset in [('reading-share-mounted','reading-share-art.js'),('ebook-app-mounted','ebook-app.js')]:
+            self.assertEqual(re.search(r'<script id="'+script_id+r'">(.*?)</script>',page,re.S).group(1).strip(),(ROOT/'assets'/asset).read_text('utf-8').strip())
+        self.assertEqual(re.search(r'<script>(.*?)</script>',page,re.S).group(1).strip(),(ROOT/'assets/reading-app.js').read_text('utf-8').strip())
+        self.assertIn('data-reader-mode="readonly"',page)
+        self.assertNotIn('id="ebookUpload"',page)
+        embedded=json.loads(re.search(r'<script id="reading-data" type="application/json">(.*?)</script>',page,re.S).group(1))
+        self.assertEqual(embedded['distillations'][0]['source_mode'],'sample')
 
     def test_demo_materials_are_fictional_and_statistics_agree(self):
         data = json.loads((DEMO / 'demo-data.json').read_text('utf-8'))

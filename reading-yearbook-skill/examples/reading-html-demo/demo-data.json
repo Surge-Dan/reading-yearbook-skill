@@ -2,6 +2,100 @@
   "year": 2026,
   "as_of": "2026-10-01",
   "source_mode": "sample",
+  "distillations": [
+    {
+      "schema_version": 1,
+      "kind": "reading-distillation",
+      "analysis": {
+        "schema_version": 1,
+        "book": {
+          "title": "检查之前 · 功能测试短篇（非真实出版物）",
+          "author": "年年阅功能示例"
+        },
+        "source_hash": "e9511ec7feb061be9d46f1ac9d299222e44a54d6997671da86358829df36a642",
+        "input_mode": "upload",
+        "overview": "这篇功能测试短文谈检查与行动：先辨认手上的资料，缺少条件时再核实，而不是猜一个答案。",
+        "themes": [
+          {
+            "title": "给未知留出位置",
+            "explanation": "先明确输入是否足够，再决定下一步，不用猜测填补缺失资料。",
+            "sources": [
+              {
+                "element_id": "sample-e1",
+                "quote": "先检查输入。",
+                "location": "受控短篇第一段"
+              }
+            ]
+          }
+        ],
+        "methods": [],
+        "cases": [],
+        "counterexamples": [],
+        "glossary": [],
+        "quality_status": "needs_review",
+        "coverage": {
+          "complete": true,
+          "scope_note": "仅覆盖自写的功能测试短篇，不代表真实书籍或个人阅读记录。"
+        },
+        "limitations": [
+          "受控示例仅验证软件链路，未调用模型，不代表真实内容质量。"
+        ],
+        "reading_lenses": [
+          {
+            "id": "sample-values",
+            "kind": "values",
+            "title": "这篇短文在意什么",
+            "text": "行动之前，先对自己的信息有多少把握做一次检查。",
+            "sources": [
+              {
+                "element_id": "sample-e1",
+                "quote": "先检查输入。",
+                "location": "受控短篇第一段"
+              }
+            ],
+            "source_verified": true
+          }
+        ],
+        "memorable_passages": [
+          {
+            "text": "先检查输入。",
+            "why_it_matters": "一句简短的提醒，把检查放在行动之前。",
+            "sources": [
+              {
+                "element_id": "sample-e1",
+                "quote": "先检查输入。",
+                "location": "受控短篇第一段"
+              }
+            ],
+            "source_verified": true
+          }
+        ]
+      },
+      "digest": "",
+      "source_hash": "e9511ec7feb061be9d46f1ac9d299222e44a54d6997671da86358829df36a642",
+      "input_mode": "upload",
+      "source_mode": "sample",
+      "checks": {
+        "book": {
+          "title": "检查之前 · 功能测试短篇（非真实出版物）",
+          "author": "年年阅功能示例"
+        },
+        "source_hash": "e9511ec7feb061be9d46f1ac9d299222e44a54d6997671da86358829df36a642",
+        "input_mode": "upload",
+        "source_validation": "exact_quotes",
+        "semantic_validation": "not_independent",
+        "evidence": [
+          {
+            "element_id": "sample-e1",
+            "quote_hash": "1f41673c0454ffe690f7e3409116362e147a36a3aa39060eca247d9e530d96e3",
+            "location": "受控短篇第一段",
+            "source_type": "text"
+          }
+        ]
+      },
+      "bundle_hash": "1518a4b410b113d031901c1d84e04ad980c82a47d77dfb1652fc73fa63353c39"
+    }
+  ],
   "verification_status": "sample_verified",
   "books": [
     {

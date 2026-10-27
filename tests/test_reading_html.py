@@ -7,10 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'reading-yearbook-skill' / 'scripts'))
 from build_reading_html import adapt_data, build_html, date_value, merge_annual, merge_materials, number
+from test_report_reader import bundle
 
 
 def fixture():
-    return {'year': 2026, 'as_of': '2026-10-01', 'source_mode': 'sample',
+    return {'year': 2026, 'as_of': '2026-10-01', 'source_mode': 'sample', 'distillations':[bundle(sample=True)],
             'summary': {'book_count': 3, 'finished_count': 1, 'total_read_seconds': 162213,
                         'read_days': 172, 'note_count': 4,
                         'monthly_read_seconds': [24505,14639,None,25239,23324,0,7347,21932,19503,2,0,0]},

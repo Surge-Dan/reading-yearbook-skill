@@ -4,14 +4,16 @@
 
 一份单文件HTML，包含年度统计、已完成月份的时长趋势、已载入书籍的主分类分布、真实事件时间线、可筛选书架、划线／个人笔记及分享导出。缺失月份保留缺口。用户只要图片时，复用已有HTML或按本次材料构建，通过同一个ReadingShareArtwork渲染器预览与导出，不切换到旧share-workflow，也不扩大书目或交付范围。
 
-默认用户只需安装Skill并接入有效微信读书接口，助手完成采集和网页交付。年份未指定默认本年并说明；用户指定范围或方向时沿用，不重复确认。有效授权和接口可用是前提，鉴权失败不拿示例冒充真实记录。HTML本身无图片比例，分享出口首次确认比例；支持3:4、1:1与4:5，不机械裁图。
+默认先由助手蒸馏至少一本，再选择“加一本或生成报告”，最后网页阅读与导出。新建真实报告必须有至少一份共享验证器通过的 real 包，缺少时在采集或写文件前提示“先蒸馏至少一本”，保留已有报告且不创建空报告；示例仅能以 source_mode=sample 单独构建并只含 sample 包。已有HTML打开不触发新建门。
+
+助手完成微信读书采集和网页交付；年份未指定默认本年并说明。鉴权失败不拿示例替代真实记录。蒸馏书目只在底部阅读，不能据此改变年度已读数、时长或书目版本。网页只读，无上传、开始指令、任务接口或模型连接；静态导出不调用模型。HTML本身无图片比例，分享出口支持3:4、1:1与4:5。
 
 ## 自动交付入口
 
 助手运行，用户无需填写JSON：
 
 ```powershell
-python -X utf8 scripts/generate_reading_html.py --year 2026 --output output/reading-2026/index.html
+python -X utf8 scripts/generate_reading_html.py --year 2026 --distillation output/books/已完成任务/deep/distillation.json --output output/reading-2026/index.html
 ```
 
 Key从环境变量读取，不进入参数或交付。私人缓存按授权、年份和日期隔离；只复用当前用户的有效材料。新采集超过100本时先返回`needs_scope_confirmation`并说明范围；用户明确同意后才加`--allow-large-yearbook`，已有完整材料不受此限制。年度排行已覆盖官方读过总数时跳过额外候选扫描；否则结合书架与分页笔记本发现候选，再以实际进度和本年日期核实。完整笔记逐书采集，零记录有效；覆盖不足如实说明。可用`--annual-snapshot`、`--materials`和`--covers`复用已核验材料，不为视觉修改重采。
@@ -21,10 +23,14 @@ Key从环境变量读取，不进入参数或交付。私人缓存按授权、�
 ## 使用已有材料构建
 
 ```powershell
-python -X utf8 scripts/build_reading_html.py --input reading-data.json --output output/reading/index.html
+python -X utf8 scripts/build_reading_html.py --input reading-data.json --distillation output/books/第一本/deep/distillation.json --distillation output/books/第二本/deep/distillation.json --output output/reading/index.html
 ```
 
 接受原始`shelf/stats/book_details`、规范化`summary/books`或已有`share-job.json`。已有分享任务包通常仅有精选书，用`--annual-snapshot`补充年内书目，不能直接加入整个书架。年度快照包含`annual.readLongest`、`shelf.books`与可选`non_ranked_progress`；后者只纳入实际开始阅读且末次阅读在本年的书。快照需通过显式year或annual.readTimes日期核验年份，跨年快照拒绝合并。
+
+`--distillation` 可重复，或已有输入包含 `distillations:[bundle]`。build_html、deliver 和自动生成入口均调用共享验证器，不以数量代替内容校验；坏包、篡改包、失败任务或真实报告中的 sample 都拒绝。包公开 analysis/digest 直接内嵌到安全转义的 JSON，不包含原始整书、私有路径、令牌或过程输出。`input_mode:upload|title` 与 `source_mode:real|sample` 独立，书名资料保持未核验全文的范围。
+
+底部默认选第一本，多书切换只改变精华内容；复制、Markdown、独立HTML、PNG与ZIP来自当前所选同一结果并保留来源边界。可选阅读视角与金句按[读懂与表达](book-reading-writing.md)，有内容才出现；旧结果缺字段继续读取，不伪造新内容。
 
 `--covers covers.json`映射书籍ID到本地PNG/JPEG/WebP路径，路径相对covers.json。构建时检查图片完整解码，缺失、路径失效或图片损坏时清除无效图片并使用已有书名占位样式，保留书目、统计、笔记和其他真实封面。工作台照常载入缺封面的旧HTML，仅书目数据损坏时拒绝载入。只有明确要求全真实封面时才使用`--require-all-covers`，此模式缺图会在写文件前停止并保留上一版。网页和离线构建本身不请求远程封面，材料采集阶段取得的有效真实封面会内嵌，不生成伪装成真实版本的封面。
 
@@ -34,7 +40,7 @@ python -X utf8 scripts/build_reading_html.py --input reading-data.json --output 
 
 ```powershell
 python -X utf8 scripts/collect_html_materials.py --input share-job.json --annual-snapshot annual-snapshot.json --output private/html-materials
-python -X utf8 scripts/build_reading_html.py --input share-job.json --annual-snapshot annual-snapshot.json --book-materials private/html-materials/materials.json --covers private/html-materials/covers.json --output output/reading/index.html
+python -X utf8 scripts/build_reading_html.py --input share-job.json --distillation output/books/已完成任务/deep/distillation.json --annual-snapshot annual-snapshot.json --book-materials private/html-materials/materials.json --covers private/html-materials/covers.json --output output/reading/index.html
 ```
 
 采集脚本读取环境变量中的Key，两个并发任务、复用有效缓存、按游标拉取全部个人想法；单书最多20页，超过时停止扩批，版本升级或鉴权失败停止新请求。可用`--legacy-cache`复用旧的`bookId-highlights.json`／`bookId-thoughts.json`。缓存及封面留在私人目录，错误状态不写成空笔记。构建器只合并当前年鉴已有书籍，不让额外书目混入。
@@ -45,7 +51,7 @@ python -X utf8 scripts/build_reading_html.py --input share-job.json --annual-sna
 
 资源、代码及书封均内嵌；字体优先本机Noto中文字族，其他设备回退系统中文字体。当前生成器未内嵌字体文件；若需跨设备字形一致，取得可再分发字体并做子集后再内嵌，不暗示已完成。
 
-当前示例采用用户认可的彩色纸本方向：花体Reading、宋体标题、红蜡笔书页、蓝色眼镜、米白纸纹及红蓝黄色云。固定英文装饰字样已排印成透明图片，字体文件不分发；中文、统计、书名保持可选文本。艺术素材与业务数据分离，网页和分享画布复用，HTML只内嵌一次。换风格时先重做构图与素材，再调整`reading-art.css`，不要只改色值。可用`--art-assets art.json`替换素材，JSON字段为`hero`、`reading`、`rhythm`，路径相对JSON；未指定字段沿用当前素材。这个示例不是风格选择器，不按书名自动套皮肤。
+沿用原字体家族、花体Reading、宋体标题、蜡笔插画和图表。本次局部修订去掉 body／paper 彩色渐变，使用单一纸色与中性外背景，按钮／输入约8px、卡片约12px，取消任务／上下文的引用式左边线；原始引文仍保留自身表达。固定英文装饰已在图片中，中文统计书名可选择。艺术素材与数据分离，只内嵌一次；`--art-assets art.json` 的 hero／reading／rhythm 可显式替换，不按书名自动换风格。
 
 ## 无材料与失败处理
 
@@ -122,4 +128,4 @@ HTML数据为`reading-html/1.2`；可读取1.1／1.2导出的JSON，保留`summa
 
 ## 已认可设计的修订边界
 
-2026-10-06已按用户要求撤回新增视觉及前端模块，恢复原彩色纸本方向。后续以最近认可的实际网页和分享图作为基准；数据修复不得自动改变字体、主题、背景、插画、图表颜色或页面结构。字号、间距与按钮微调只处理用户指出的局部，并核对修改前后。
+2026-10-06恢复原纸本方向的记录属于历史。2026-10-26批准的本次改动仅为中性背景、圆角、任务装饰与只读多书精华；原字体、插画、图表和年报主体保留。后续数据修复仍不得擅自换主题或新增模块，局部修改核对实际网页与导出。

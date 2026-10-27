@@ -64,7 +64,10 @@ def asset(name):
     return path.read_text('utf-8') if path.is_file() else ''
 
 
-def workbench_page(config=None, result=None, yearbook=None):
+def workbench_page(config=None, result=None, yearbook=None, legacy=False):
+    if not legacy:
+        from report_reader import reader_page
+        return reader_page(result, yearbook)
     section = asset('ebook-section.html') or '<main id="ebook"><h1>电子书精华</h1></main>'
     css = asset('ebook-app.css')
     if yearbook:
@@ -453,7 +456,7 @@ class JobStore:
         self.executor.shutdown(wait=True, cancel_futures=True)
 
 
-def create_server(store, port=0, yearbook=None):
+def create_server(store, port=0, yearbook=None, legacy_workbench=False):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             # Do not log source names, request URLs, tokens, or model payloads.
@@ -493,7 +496,7 @@ def create_server(store, port=0, yearbook=None):
                 return
             try:
                 if path == '/':
-                    self.send(200, workbench_page({'apiBase': '', 'token': store.token, 'output': str(store.output)}, yearbook=yearbook), 'text/html; charset=utf-8')
+                    self.send(200, workbench_page({'apiBase': '', 'token': store.token, 'output': str(store.output)}, yearbook=yearbook, legacy=legacy_workbench), 'text/html; charset=utf-8')
                 elif path == '/api/state':
                     self.send(200, store.state())
                 elif path.startswith('/api/jobs/'):
@@ -591,11 +594,12 @@ def main():
     parser.add_argument('--stage-timeout', type=int, default=180, help='每个模型阶段的等待上限，30–900 秒；不自动重试')
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--yearbook', type=Path)
+    parser.add_argument('--legacy-workbench', action='store_true', help='显式启用旧开发工作台，默认只读报告')
     parser.add_argument('--open', action='store_true')
     args = parser.parse_args()
     from ebook_runner import create_runner
     store = JobStore(args.output, create_runner(args.runner, timeout=args.stage_timeout))
-    server = create_server(store, args.port, args.yearbook)
+    server = create_server(store, args.port, args.yearbook, args.legacy_workbench)
     url = f'http://127.0.0.1:{server.server_port}/'
     atomic_json(store.output / '.ebook-workbench/runtime.json', {'pid': os.getpid(), 'url': url})
     print(safe_json({'url': url, 'pid': os.getpid(), 'runner': store.runner.info()}), flush=True)

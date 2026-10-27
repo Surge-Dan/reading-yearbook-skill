@@ -4,12 +4,14 @@
 
 [reading-html-demo/index.html](reading-html-demo/index.html)由当前HTML构建代码生成，分享图片直接使用网页内的ReadingShareArtwork渲染器。它与真实任务共用CSS、插画和分享绘制入口，不另外套用展示模板。
 
-- [网页截图](reading-html-demo/web-preview.png)
+- [历史网页截图](reading-html-demo/web-preview.png)（彩色纸本版本，当前HTML已用中性背景与只读精华）
 - [代表分享页预览](reading-html-demo/share-overview.png)
 - [完整PNG组图](reading-html-demo/images/)
 - [重建与数据说明](reading-html-demo/README.md)
 
 数据、书名、作者、简介和笔记全部虚构，书封为原创示意。它们只用于展示不同材料状态，不代表出版物或用户阅读记录。真实任务的书目数量随实际数据变化。
+
+底部功能测试短篇经共享 `make_bundle` 从明确的受控证据生成，包与年鉴均标记 sample；不计入六本年度书目，不证明真实书籍效果或模型质量。
 
 ## 历史独立组图
 

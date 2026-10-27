@@ -8,6 +8,7 @@ from PIL import Image,ImageDraw
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'reading-yearbook-skill/scripts'))
 from build_reading_html import adapt_data,build_html,merge_annual,merge_materials,TZ
+from test_report_reader import bundle
 
 
 def main():
@@ -30,6 +31,7 @@ def main():
             covers[book_id]=cover
         raw={'year':2026,'as_of':'2026-01-20' if name=='january' else '2026-10-06','source_mode':'sample','verification_status':'sample_verified',
             'summary':{'book_count':count,'finished_count':count//3,'note_count':count*2,'read_days':174,'total_read_seconds':3600*45+21*60,'monthly_read_seconds':[3600,None,0,7200,1800,1200,4400,6600,3300,120]},'books':books}
+        raw['distillations']=[bundle(sample=True)]
         data=adapt_data(raw)
         merge_materials(data,{'year':2026,'books':[{**b,'notes_scope':'all_time','collection':{'highlights':'complete','thoughts':'complete'}} for b in books]})
         if name=='mixed':

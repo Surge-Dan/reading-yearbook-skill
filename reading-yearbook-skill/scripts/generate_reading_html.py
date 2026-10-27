@@ -136,8 +136,11 @@ def collect_snapshot(year, key, cache, refresh=False, allow_large=False, request
     return snapshot
 
 
-def deliver(snapshot, materials, covers, output, previous=None, state_path=None, allow_draft=False):
+def deliver(snapshot, materials, covers, output, previous=None, state_path=None, allow_draft=False, distillations=None):
+    from report_reader import validated_distillations
+    packages = validated_distillations(distillations)
     data=annual_data(snapshot)
+    data['distillations']=packages
     if previous and previous.get('year')==data['year']:
         existing={b['book_id']:b for b in previous.get('books',[])}
         for book in data['books']:
@@ -169,6 +172,7 @@ def deliver(snapshot, materials, covers, output, previous=None, state_path=None,
 def main():
     parser=argparse.ArgumentParser(description='接入有效微信读书Key后，自动交付单文件HTML阅读年鉴')
     parser.add_argument('--year',type=int,default=datetime.now(TZ).year)
+    parser.add_argument('--distillation',type=Path,action='append',default=[],help='已完成 distillation.json，可重复提供多本')
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--cache',type=Path,help='私人材料目录；默认按年份和日期缓存')
     parser.add_argument('--annual-snapshot',type=Path,help='复用已核验年度快照')
@@ -179,6 +183,11 @@ def main():
     parser.add_argument('--refresh',choices=('reuse','missing','all'),default='reuse',help='复用缓存、重试缺失或刷新全部材料')
     parser.add_argument('--discovery-budget',type=int,default=100,help='未扩批确认时允许的新候选请求数量')
     args=parser.parse_args()
+    from report_reader import load_distillations
+    try:
+        packages=load_distillations(args.distillation)
+    except (ValueError,OSError) as error:
+        print(json.dumps({'status':'blocked','message':str(error)},ensure_ascii=False));return 2
     if not 1900<=args.year<=2200:parser.error('年份须在1900—2200之间')
     if args.year>datetime.now(TZ).year:parser.error('不能采集未来年份')
     if args.discovery_budget<1:parser.error('候选请求预算须大于0')
@@ -208,10 +217,10 @@ def main():
             covers=json.loads((cache/'covers.json').read_text('utf-8'))
         state_path=None if args.materials else cache.parent/'latest-reading-data.json'
         previous=json.loads(state_path.read_text('utf-8')) if state_path and state_path.exists() else None
-        result=deliver(snapshot,materials,covers,args.output,previous,state_path,allow_draft=args.allow_draft)
+        result=deliver(snapshot,materials,covers,args.output,previous,state_path,allow_draft=args.allow_draft,distillations=packages)
         print(json.dumps(result,ensure_ascii=False));return 0 if result['status']=='complete' else 2 if result['status']=='blocked' else 3
     except ScopeRequired as error:
-        result=deliver(error.snapshot,{'year':args.year,'books':[]},{},args.output)
+        result=deliver(error.snapshot,{'year':args.year,'books':[]},{},args.output,distillations=packages)
         print(json.dumps({**result,'status':'needs_scope_confirmation','candidates':error.candidates,
             'message':'年度汇总已交付；候选扩查将超过本轮预算，请确认后使用--allow-large-yearbook继续。缺失封面暂用书名占位。'},ensure_ascii=False));return 3
     except (WeReadError,ValueError,OSError) as error:
