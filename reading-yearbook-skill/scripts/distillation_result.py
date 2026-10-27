@@ -22,7 +22,8 @@ VERIFICATION = {'status':str,'reason':str,'V1':bool,'V2':bool,'V3':bool,
     'task_utility':str,'pressure_passed':bool,'source_check':str,'semantic_evaluation':str,'blind_baseline':bool}
 READER_ENTRY = {'id':str,'title':str,'explanation':str,'sources':[SOURCE],'source_verified':bool}
 METHOD = {'id':str,'title':str,'interpretation':str,'trigger':str,'steps':[str],'example':str,
-    'boundaries':[str],'candidate_ids':[str],'sources':[SOURCE],'source_verified':bool,'verification':VERIFICATION}
+    'boundaries':[str],'candidate_ids':[str],'original_candidate_ids':[str],
+    'sources':[SOURCE],'source_verified':bool,'verification':VERIFICATION}
 CANDIDATE = {'id':str,'title':str,'type':str,'summary':str,'status':str,'reason':str,'task_ids':[str],
     'sources':[SOURCE],'verification':VERIFICATION,'canonical_id':str,'coverage_reason':str,
     'original_candidate_ids':[str],'delivered_methods':[str],'delivered_reference':(str,type(None)),'final_status':str}

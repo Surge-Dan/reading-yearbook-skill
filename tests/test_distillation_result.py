@@ -181,6 +181,26 @@ class BundleTests(unittest.TestCase):
             changed['bundle_hash']=api.bundle_hash(changed)
             with self.subTest(section=section),self.assertRaises(ValueError):api.validate_bundle(changed)
 
+    def test_merged_candidate_lineage_survives_public_projection(self):
+        api=self.api()
+        for mode in ('upload','title'):
+            analysis,document=fixture(mode)
+            method={'id':'m1','title':'检查','interpretation':'检查输入','trigger':'行动前',
+                    'steps':['检查'],'example':'核对输入','boundaries':['缺失时停止'],
+                    'candidate_ids':['c1'],'original_candidate_ids':['c1','c2'],
+                    'sources':copy.deepcopy(analysis['themes'][0]['sources']),
+                    'verification':{'status':'needs_review','reason':'合并候选后待核查'},
+                    'unknown_object':{'source_text':'NEVER-PUBLIC'},'agent_token':'NEVER-PUBLIC'}
+            analysis['methods']=[method]
+            analysis['decision_rules']=[dict(copy.deepcopy(method),method_id='m1')]
+            bundle=api.make_bundle(analysis,document)
+            self.assertFalse('NEVER-PUBLIC' in json.dumps(bundle),'Unknown fields must still be removed')
+            for section in ('methods','decision_rules'):
+                with self.subTest(mode=mode,section=section):
+                    self.assertEqual(bundle['analysis'][section][0].get('original_candidate_ids'),['c1','c2'])
+                    self.assertEqual(bundle['analysis'][section][0]['candidate_ids'],['c1'])
+            self.assertEqual(api.validate_bundle(bundle),bundle)
+
     def test_public_scalar_fields_cannot_smuggle_nested_objects(self):
         api=self.api();analysis,document=fixture()
         analysis['coverage']['scope_note']={'source_text':'private'}
