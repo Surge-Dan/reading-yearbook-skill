@@ -337,7 +337,7 @@ window.ReadingShareArtwork = (() => {
   }
   // Digest cards keep every line. Pagination happens before drawing and the
   // same page descriptor is used by preview, PNG and ZIP.
-  function createDigest({analysis}){
+  function createDigest({analysis,source_mode='real'}){
     const fonts=()=>document.fonts.ready;
     const titleMode=analysis.input_mode==='title',footerHeight=132;
     // Detailed evidence and verification stay in the result's reference section.
@@ -349,7 +349,7 @@ window.ReadingShareArtwork = (() => {
       const text=(str,x,y,size=28,font=SANS,color=C.ink,weight=400,role='content')=>{ctx.font=`${weight} ${size}px ${font}`;ctx.fillStyle=color;ctx.textBaseline='alphabetic';ctx.fillText(str,x,y);const m=ctx.measureText(str);if(str.trim())manifest.text.push({text:str,x:x-m.actualBoundingBoxLeft,y:y-m.actualBoundingBoxAscent,w:m.actualBoundingBoxLeft+m.actualBoundingBoxRight,h:m.actualBoundingBoxAscent+m.actualBoundingBoxDescent,size,role});};
       const rule=y=>{ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(M,y);ctx.lineTo(W-M,y);ctx.stroke();};
       ctx.fillStyle=C.paper;ctx.fillRect(0,0,W,H);ctx.strokeStyle=C.line;ctx.strokeRect(22,22,W-44,H-44);text('年年阅',M,72,28,SERIF,C.ink,600);text('书中精华',530,72,24,SANS,C.muted);rule(95);
-      page.rows.forEach((row,i)=>text(row.text,M,160+i*48,row.size||32,(row.weight||400)===600?SERIF:SANS,C.ink,row.weight||400));manifest.blocks.push({x:M,y:122,w:772,h:H-238-(footerHeight-84),cut:false});rule(H-footerHeight);{text(titleMode?'基于公开资料，未核验全文':('基于所提供正文'+(analysis.quality_status==='needs_review'?' · 方法待核查':'')),M,H-96,23,SANS,C.muted,400,'footer');text((analysis.reading_status?.level==='partial'?'部分解读 · ':'')+'出处与资料范围见结果页',M,H-64,23,SANS,C.muted,400,'footer');}text(`${page.part} / ${page.parts}`,M,H-32,24,NUM,C.muted,400,'footer');return canvas;
+      page.rows.forEach((row,i)=>text(row.text,M,160+i*48,row.size||32,(row.weight||400)===600?SERIF:SANS,C.ink,row.weight||400));manifest.blocks.push({x:M,y:122,w:772,h:H-238-(footerHeight-84),cut:false});rule(H-footerHeight);{text((source_mode==='sample'?'功能测试示例 · ':'')+(titleMode?'基于公开资料，未核验全文':('基于所提供正文'+(analysis.quality_status==='needs_review'?' · 方法待核查':''))),M,H-96,23,SANS,C.muted,400,'footer');text((analysis.reading_status?.level==='partial'?'部分解读 · ':'')+'出处与资料范围见结果页',M,H-64,23,SANS,C.muted,400,'footer');}text(`${page.part} / ${page.parts}`,M,H-32,24,NUM,C.muted,400,'footer');return canvas;
     }
     return {pages,render};
   }

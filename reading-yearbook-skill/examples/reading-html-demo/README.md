@@ -30,6 +30,8 @@ node examples/export_html_demo.cjs
 
 运行后更新`web-preview.png`、`share-overview.png`、完整PNG及`preview-manifest.json`。该构建仅重建公开示例，不读取微信读书接口、密钥或私人阅读文件。
 
+只读双书功能回归另用仓库已提交的 `tests/build_report_reader_fixture.py`；在仓库根目录运行 `node tests/report_reader_browser.cjs` 会自动生成受控测试页，无需 ignored helper 或预先存在的 demo-output。步骤和运行时路径配置见[回归说明](../../../tests/README-report-reader.md)。
+
 ## 验证与许可
 
 导出脚本检查900×1200尺寸、网页预览与实际下载的像素差异、390px页面溢出、控制台错误和离线网络请求。Canvas复制与PNG编码可能在预乘透明边缘产生不超过一个色阶的舍入，报告保留实际最大差异，不要求编码字节相同。
