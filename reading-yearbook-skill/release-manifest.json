@@ -21,9 +21,9 @@
     },
     {
       "path": "assets/ebook-app.js",
-      "sha256": "fa62ef20e384661e88c6c76df55edc871fa27fdfe6541a831ec870a1f696164f",
+      "sha256": "bc5f7c548adc1b36598c91b31365bd1f4096f35198b657931f138d68a52cdbd0",
       "hash_kind": "text-lf",
-      "bytes": 31393
+      "bytes": 31424
     },
     {
       "path": "assets/ebook-reader-section.html",
@@ -87,9 +87,9 @@
     },
     {
       "path": "assets/reading-share-art.js",
-      "sha256": "b82fa551c762ce9074e9b7f5e7fa8e318fbea1ebf970edf3084fa7a8e2044f74",
+      "sha256": "30e8da1e914e79425d79fb646ccd8206c91031db67273bac1a124cb17243beb2",
       "hash_kind": "text-lf",
-      "bytes": 32105
+      "bytes": 32179
     },
     {
       "path": "assets/reading-template.html",
@@ -387,9 +387,9 @@
     },
     {
       "path": "examples/reading-html-demo/index.html",
-      "sha256": "bad49b882eb6ad8059c45b19e9752ce0d82036cca001b02bb35c31e43ae87f82",
+      "sha256": "f8b8bc271661f74675f0907354724c3b66f482e8fdda2140b2ecfb7cc5eb7953",
       "hash_kind": "text-lf",
-      "bytes": 3694769
+      "bytes": 3694874
     },
     {
       "path": "examples/reading-html-demo/preview-manifest.json",
@@ -399,9 +399,9 @@
     },
     {
       "path": "examples/reading-html-demo/README.md",
-      "sha256": "3a1056b6bb63bd8d630384c71f3f32e7e2bdef82ade64238ef73f86a7c484279",
+      "sha256": "53b5707a973d2e66360fc6b20d857cda423bf29c0e7394bfa97aff796c93decd",
       "hash_kind": "text-lf",
-      "bytes": 2853
+      "bytes": 3187
     },
     {
       "path": "examples/reading-html-demo/share-overview.png",
