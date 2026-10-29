@@ -101,9 +101,11 @@ class Client:
 def main():
     parser = argparse.ArgumentParser(description='年年阅当前 Agent 阶段交接')
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('action', choices=['list', 'create-title', 'create-file', 'select-book', 'cancel', 'retry', 'approve', 'claim', 'next', 'submit', 'release'])
+    parser.add_argument('action', choices=['list', 'create-title', 'create-file', 'select-book', 'cancel', 'retry', 'approve', 'claim', 'next', 'submit', 'release', 'recover'])
     parser.add_argument('--job')
     parser.add_argument('--session')
+    parser.add_argument('--expected-session')
+    parser.add_argument('--confirm-transfer', action='store_true')
     parser.add_argument('--host')
     parser.add_argument('--model', default='unknown')
     parser.add_argument('--request-id')
@@ -131,6 +133,10 @@ def main():
             if not args.job or not args.session:
                 raise ValueError('需要 --job 和 --session')
             data = {'session': args.session}
+            if args.action == 'recover':
+                if not args.expected_session or not args.confirm_transfer:
+                    raise ValueError('恢复需要 --expected-session 和 --confirm-transfer')
+                data.update(expected_session=args.expected_session, confirm_transfer=True)
             if args.action=='select-book':data.update(book_id=args.book_id,selection_id=args.selection_id)
             if args.action == 'claim':
                 data.update(host=args.host, model=args.model)

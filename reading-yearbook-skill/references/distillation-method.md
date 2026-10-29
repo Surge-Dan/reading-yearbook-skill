@@ -10,7 +10,7 @@
 3. 助手启动 `python -X utf8 scripts/serve_ebook.py --output <任务输出目录> --runner agent --port 0`。已有报告可加 `--yearbook <现有HTML>`，默认只读并保持年度首页；不自动触发分析。Windows 后台使用隐藏窗口，记录 PID，避免重复服务。模型任务由下一节私有 CLI 创建，与网页令牌分离。
 4. 核对 stdout 的 PID 与实际 URL；私有辅助客户端自行读取 `.ebook-workbench/agent-runtime.json`，不要将令牌复制到聊天、报告或页面。服务打开读者页面不会获取 agent token。不要让用户运行命令或填写 JSON。
 5. 服务仅需在助手处理阶段存活；静态报告、独立结果 HTML 可离线浏览、复制和导图。新蒸馏由助手重开私有服务，认证失败、解析缺口或非法回复按真实状态说明，不维持假进度。
-6. 领取及每个待回复阶段默认期限 180 秒，可显式设 `--stage-timeout 600`，范围 30–900 秒。失败／过期先保存诊断并说明，再由助手按已获授权 retry 后重新 claim；新会话使用新 session，不假冒旧身份。未经允许不扩大期限、预算或整书重试。仅调整时限不改变有效内容缓存身份。
+6. 领取及每个待回复阶段默认期限 180 秒，可显式设 `--stage-timeout 600`，范围 30–900 秒。失败／过期先保存诊断并说明，再由助手按已获授权 retry 后重新 claim；新会话使用新 session，不假冒旧身份。用户明确授权接续旧任务后，先核对原 session，调用下一节 `recover` 显式接管，再分别 retry、claim。未经允许不扩大期限、预算或整书重试。仅调整时限不改变有效内容缓存身份。
 
 ## 当前 Agent 阶段交接
 
@@ -30,6 +30,15 @@ python -X utf8 scripts/ebook_agent.py --output <输出目录> cancel --job <任�
 python -X utf8 scripts/ebook_agent.py --output <输出目录> retry --job <任务ID> --session <同一对话ID>
 ```
 
+- 新对话接续旧任务时，只有用户明确授权恢复，才执行以下命令；`--expected-session` 必须是私有任务记录中的原 owner，`--session` 必须是真实新对话 ID。`--confirm-transfer` 仅记录显式授权，不代替用户确认。仅 interrupted／failed／cancelled 可接管；有效领取、尚未结束的准备／执行线程，以及 awaiting／书籍选择／预算确认／完成状态均拒绝。旧尝试、回复和事件失效，执行身份历史只保存在私有 `.agent/ownership.json` 与原尝试文件中。旧版本没有该身份文件时，转移记录保留原 session，原 `.agent/<尝试>/request.json` 保留原身份，不伪造未知 host／model。
+
+```powershell
+python -X utf8 scripts/ebook_agent.py --output <输出目录> recover --job <已停止任务ID> --session <真实新对话ID> --expected-session <原对话ID> --confirm-transfer
+python -X utf8 scripts/ebook_agent.py --output <输出目录> retry --job <同一任务ID> --session <真实新对话ID>
+python -X utf8 scripts/ebook_agent.py --output <输出目录> claim --job <同一任务ID> --session <真实新对话ID> --host <实际宿主> --model <实际模型或unknown>
+```
+
+- recover 本身只转移 owner，不执行模型、不重试、不批准预算，也不修改正文、来源哈希、输入模式或有效缓存。后续 retry／claim 仍需既有范围与成本授权，使用新尝试和真实新模型身份；原 owner 不能再操作。同一对话仍直接走原 retry／claim，无需 recover。
 - `next` 返回真实阶段请求，包括规则、证据、schema、任务／尝试／请求 ID 和输入摘要。没有请求时只检查当前状态；不要将空请求当作空书。短暂准备阶段最多有界查询；失败、取消、预算确认或完成即停止，不无限轮询。
 - 用当前会话模型按请求分析，写 JSON 对象到 `.ebook-workbench/jobs/<任务ID>/` 内，再提交。不要直接写正式 analysis.json 或伪造 pipeline 缓存。`submitted` 只表示已收到；检查后续任务状态，契约／来源门通过才算接受。
 - 依次处理实际请求，遵守已获准预算；不要求用户每个阶段重新发送指令。相同请求不重复生成，不自动修复失败回复并重新收费；保留有效前序，报告错误后等用户授权重试。

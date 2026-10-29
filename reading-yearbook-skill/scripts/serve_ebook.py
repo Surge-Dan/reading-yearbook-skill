@@ -12,6 +12,7 @@ import uuid
 import time
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -135,6 +136,10 @@ class JobStore:
         self.jobs = {}
         self.events = {}
         self.runners = {}
+        # The executor is serial: replacing a handle with a later queued future
+        # still covers older work. Retain done handles until retry or recovery;
+        # an old worker callback must never remove a replacement's handle.
+        self.workers = {}
         for state_file in self.jobs_dir.glob('*/state.json'):
             if not JOB_ID.fullmatch(state_file.parent.name):
                 continue
@@ -240,12 +245,12 @@ class JobStore:
             if job.get('assistant_input'):
                 job.update(stage='prepare',message='正文已接收，正在准备来源')
                 self._save(job)
-                self.executor.submit(self._prepare_agent_source,job['id'],event)
+                self.workers[job['id']] = self.executor.submit(self._prepare_agent_source,job['id'],event)
                 return
             self._prepare_agent_source(job['id'],event)
             return
         self._save(job)
-        self.executor.submit(self._run, job['id'], event, allow_large)
+        self.workers[job['id']] = self.executor.submit(self._run, job['id'], event, allow_large)
 
     def _prepare_agent_source(self,job_id,event):
         """Prepare assistant uploads off the HTTP thread; return a job ID immediately."""
@@ -274,6 +279,8 @@ class JobStore:
     def agent_action(self, job_id, action, data):
         if not self.agent_mode or not isinstance(data, dict):
             raise ValueError('当前工作台不是当前 Agent 模式')
+        if action == 'recover':
+            return self._recover_session(job_id, data)
         with self.lock:
             job = self._job(job_id)
             owner=job.get('assistant_session')
@@ -295,12 +302,24 @@ class JobStore:
                         if not event.is_set():
                             job.update(update)
                             self._save(job)
+                ownership_path = self.jobs_dir / job_id / '.agent' / 'ownership.json'
+                previous_ownership = json.loads(ownership_path.read_text('utf-8')) if ownership_path.exists() else {}
                 runner = self.runner.bind(self.jobs_dir / job_id, job_id, data, notify, event)
-                job['assistant_session']=data['session']
+                ownership = dict(previous_ownership, execution_identity=dict(runner.identity), attempt_id=runner.attempt)
+                claimed = dict(job, assistant_session=data['session'], state='queued', message='当前 Agent 已领取，正在准备正文')
+                audit_saved = False
+                try:
+                    atomic_json(ownership_path, ownership)
+                    audit_saved = True
+                    self._save(claimed)
+                except Exception:
+                    runner.revoke('领取未能保存，尝试已失效')
+                    if audit_saved:
+                        atomic_json(ownership_path, previous_ownership)
+                    raise
+                job.update(claimed)
                 self.runners[job_id] = runner
-                job.update(state='queued', message='当前 Agent 已领取，正在准备正文')
-                self._save(job)
-                self.executor.submit(self._run, job_id, event, job.get('allow_large', False), runner)
+                self.workers[job_id] = self.executor.submit(self._run, job_id, event, job.get('allow_large', False), runner)
                 return {'job': self.get(job_id), 'attempt_id': runner.attempt}
             runner = self.runners.get(job_id)
             event = self.events.get(job_id)
@@ -329,6 +348,66 @@ class JobStore:
                 self._save(job)
             return {'status': 'released'}
         raise ValueError('不支持的 Agent 操作')
+
+    def _recover_session(self, job_id, data):
+        """Explicit owner CAS for a stopped attempt; never retries or approves work."""
+        session, expected = data.get('session'), data.get('expected_session')
+        if (data.get('confirm_transfer') is not True or
+            any(not isinstance(value, str) or not value.strip() or len(value) > 200
+                for value in (session, expected)) or session == expected):
+            raise ValueError('恢复需要新 session、原 session 和明确确认转移')
+
+        def stopped_job():
+            job = self._job(job_id)
+            if job.get('runner_mode') != 'current-agent-instructed-tools':
+                raise ValueError('历史 CLI 任务不能转移给当前 Agent')
+            if job.get('assistant_session') != expected:
+                raise ValueError('原对话身份已变化，请重新核对任务')
+            if job['state'] not in {'interrupted', 'failed', 'cancelled'}:
+                raise ValueError('仅可恢复已停止的任务')
+            worker = self.workers.get(job_id)
+            if worker is not None and not worker.done():
+                raise ValueError('上一尝试仍在停止，请等待结束后恢复')
+            return job
+
+        with self.lock:
+            stopped_job()
+            runner = self.runners.get(job_id)
+        # Match runner callbacks' lock order. Recheck the snapshot after acquiring
+        # both locks: a concurrent retry/recovery must never retire a new attempt.
+        with runner.condition if runner else nullcontext():
+            with self.lock:
+                job = stopped_job()
+                if self.runners.get(job_id) is not runner:
+                    raise ValueError('任务尝试已变化，请重新核对后恢复')
+                event = self.events.get(job_id)
+                if (runner and not runner.revoked and
+                    not (runner.cancel_event and runner.cancel_event.is_set()) and runner.clock() < runner.deadline):
+                    raise ValueError('上一尝试仍持有有效领取，不能转移')
+                ownership_path = self.jobs_dir / job_id / '.agent' / 'ownership.json'
+                previous_ownership = json.loads(ownership_path.read_text('utf-8')) if ownership_path.exists() else {}
+                previous = dict(runner.identity) if runner else dict(previous_ownership.get('execution_identity') or {'session': expected})
+                transfer = {'previous_session': expected, 'new_session': session,
+                            'execution_identity': previous,
+                            'attempt_id': runner.attempt if runner else previous_ownership.get('attempt_id'),
+                            'transferred_at': datetime.now(timezone.utc).isoformat()}
+                ownership = dict(previous_ownership, session_transfers=[*previous_ownership.get('session_transfers', []), transfer])
+                atomic_json(ownership_path, ownership)
+                transferred = dict(job, assistant_session=session, message='新对话已接管停止的任务；授权后重试并重新领取')
+                try:
+                    self._save(transferred)
+                except Exception:
+                    atomic_json(ownership_path, previous_ownership)
+                    raise
+                if event:
+                    event.set()
+                if runner:
+                    runner.revoke('任务已由新对话显式恢复，旧尝试已失效')
+                self.runners.pop(job_id, None)
+                self.events.pop(job_id, None)
+                self.workers.pop(job_id, None)
+                job.update(transferred)
+                return {'job': self.get(job_id)}
 
     def _run(self, job_id, event, allow_large, runner=None):
         def progress(update):
@@ -545,7 +624,7 @@ def create_server(store, port=0, yearbook=None, legacy_workbench=False):
                             store._save(store.jobs[job['id']])
                         self.send(202,{'job':store.get(job['id'])})
                     else:
-                        match = re.fullmatch(r'/api/agent/([a-f0-9]{32})/(claim|next|submit|release|select-book|cancel|retry|approve)', parsed.path)
+                        match = re.fullmatch(r'/api/agent/([a-f0-9]{32})/(claim|next|submit|release|select-book|cancel|retry|approve|recover)', parsed.path)
                         if not match:
                             self.send(404, {'error': '操作不存在'})
                             return
