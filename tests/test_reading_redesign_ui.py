@@ -59,7 +59,7 @@ class ReadingRedesignBrowserTests(unittest.TestCase):
                         if '/api/' in route.request.url:
                             route.fulfill(json={'runner':{'available':True,'mode':'current-agent-instructed-tools'},'jobs':[job],'job':job})
                         else:
-                            route.fulfill(body=workbench_page({'token':'test'}),content_type='text/html')
+                            route.fulfill(body=workbench_page({'token':'test'},legacy=True),content_type='text/html')
                     page.route('**/*',route_request)
                     page.goto('http://reading.test',wait_until='networkidle')
                     self.assertIn(label,page.locator('#ebookProgress').inner_text())

@@ -597,9 +597,9 @@
     },
     {
       "path": "references/distillation-method.md",
-      "sha256": "de9abd055f6a0aa8cb29dfae05ef71122d4dd3e28cd974364f8bab2f6af1c475",
+      "sha256": "4ed6b645af85332d5810c8b1b6f5c973a27d2d8c1d59ad87cc613b9f7792a71b",
       "hash_kind": "text-lf",
-      "bytes": 18739
+      "bytes": 19100
     },
     {
       "path": "references/evidence-rules.md",
@@ -807,9 +807,9 @@
     },
     {
       "path": "scripts/html_contract.py",
-      "sha256": "b50efe76bf4f8219ef5a6aa862ae41596702a0ef46a61b5339b63340a3f75dc4",
+      "sha256": "3adcffd324da062a50cfbdf1209d9ca74c9a79715c03b66f7da06b10c2e83cf0",
       "hash_kind": "text-lf",
-      "bytes": 2273
+      "bytes": 2734
     },
     {
       "path": "scripts/inspect_artwork.cjs",
@@ -855,9 +855,9 @@
     },
     {
       "path": "scripts/serve_ebook.py",
-      "sha256": "7ba0cd5bc47c0846dbde50f421f689b97c60f143ab3a73cdf626a77265219fa9",
+      "sha256": "f8b4b25596e81da43daa0213d6b7b6bd153dc409a8c06ee25364b05a412464d4",
       "hash_kind": "text-lf",
-      "bytes": 38411
+      "bytes": 39250
     },
     {
       "path": "scripts/share_contract.py",

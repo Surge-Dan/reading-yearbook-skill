@@ -13,9 +13,9 @@ from test_book_title import analysis_reply
 
 
 class TitleBrowserTests(unittest.TestCase):
-    def test_browser_submits_title_and_keeps_upload_tab(self):
+    def test_legacy_browser_submits_title_and_keeps_upload_tab(self):
         with tempfile.TemporaryDirectory() as tmp, sync_playwright() as p:
-            store = JobStore(tmp, AgentRunner()); server = create_server(store)
+            store = JobStore(tmp, AgentRunner()); server = create_server(store, legacy_workbench=True)
             thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
             browser = p.chromium.launch(executable_path='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless=True)
             try:

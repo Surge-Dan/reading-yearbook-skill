@@ -290,7 +290,7 @@ class JobStore:
             if action in ('select-book','cancel','retry','approve'):
                 if not owner: raise ValueError('请先由当前助手领取任务')
                 if action=='select-book': return {'job':self.select_book(job_id,data.get('book_id'),data.get('selection_id'))}
-                return {'job':self.action(job_id,action)}
+                return {'job':self.action(job_id,action,assistant_review_retry=action=='retry')}
             if action == 'claim':
                 if job.get('runner_mode') != 'current-agent-instructed-tools':
                     raise ValueError('历史 CLI 任务不能由当前 Agent 领取')
@@ -503,7 +503,7 @@ class JobStore:
             self._save(job)
             return self.get(job_id)
 
-    def action(self, job_id, action):
+    def action(self, job_id, action, *, assistant_review_retry=False):
         with self.lock:
             job = self._job(job_id)
             if action == 'cancel':
@@ -520,7 +520,17 @@ class JobStore:
                 self._save(job)
             elif action in {'retry', 'approve'}:
                 allowed = {'needs_approval'} if action == 'approve' else {'failed', 'cancelled', 'interrupted'}
-                if job['state'] not in allowed:
+                analysis = job.get('analysis')
+                review = analysis.get('review') if isinstance(analysis, dict) else None
+                # A bounded review failure keeps a readable main result. Let
+                # its owning assistant explicitly resume through normal cache
+                # validation, without opening retries for accepted results.
+                missing_review = (action == 'retry' and assistant_review_retry and self.agent_mode
+                                  and job.get('assistant_input') is True
+                                  and job['state'] == 'completed'
+                                  and isinstance(review, dict)
+                                  and review.get('status') == 'unavailable')
+                if job['state'] not in allowed and not missing_review:
                     raise ValueError('当前任务状态不支持此操作')
                 self._check_busy()
                 self._start(job, action == 'approve' or job.get('allow_large', False))

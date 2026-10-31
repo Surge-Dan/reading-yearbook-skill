@@ -3,6 +3,7 @@ import json
 import math
 import os
 import tempfile
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -43,7 +44,16 @@ def atomic_text(path, text):
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:
             stream.write(text)
-        os.replace(name, path)
+        # Windows readers/indexers can briefly deny replacement of a closed
+        # destination. Retry only this filesystem operation, never generation.
+        for attempt in range(4):
+            try:
+                os.replace(name, path)
+                break
+            except PermissionError as error:
+                if getattr(error, 'winerror', None) not in (5, 32, 33) or attempt == 3:
+                    raise
+                time.sleep((0.02, 0.05, 0.1)[attempt])
     finally:
         if os.path.exists(name):
             os.unlink(name)
